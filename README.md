@@ -1,517 +1,329 @@
 # OCR Legal Document Processor
 
-A comprehensive fullstack web application for processing multilingual legal documents using OCR, AI translation, and natural language processing. Features both cloud-based AI (Google Gemini) and local open-source NLP models for maximum flexibility and cost control.
+A powerful AI-driven application for processing legal documents with OCR, translation, summarization, and document comparison capabilities.
 
-## 🚀 Features
+## 🚀 **Quick Start (One-Click Setup)**
 
-- **📄 OCR Text Extraction**: Extract text from PDF and image files using Tesseract OCR
-- **🌍 AI-Powered Translation**: Translate documents to 15+ languages using Google Gemini API or local NLLB models
-- **✨ Intelligent Text Cleanup**: Clean and format OCR-extracted text using AI with smart chunking for long documents
-- **📋 Document Summarization**: Generate concise summaries of legal documents using local DistilBART or Gemini
-- **🔗 Bullet Point Generation**: Create structured bullet points from document content
-- **🔍 Document Comparison**: Compare two documents with AI-powered analysis and visual diff
-- **🎨 Modern UI**: Responsive design built with React, Vite, and Tailwind CSS
-- **⚡ Local NLP Support**: Use open-source models offline to avoid API costs and ensure privacy
-- **🔄 Smart Text Chunking**: Handles long documents by intelligently splitting text at paragraph/sentence boundaries
-
-## 🛠️ Tech Stack
-
-### Backend
-- **Flask** - Python web framework with CORS support
-- **pytesseract** - OCR text extraction from images and PDFs
-- **Google Gemini API** - Cloud-based AI for NLP tasks (optional)
-- **🤗 Transformers** - Local open-source NLP models:
-  - `facebook/nllb-200-distilled-600M` - Multilingual translation
-  - `sshleifer/distilbart-cnn-12-6` - Text summarization
-  - `distilgpt2` - Text generation and cleanup
-- **Flask-CORS** - Cross-origin resource sharing
-- **python-dotenv** - Environment variable management
-- **pdf2image** - PDF to image conversion for OCR
-
-### Frontend
-- **React 18** - Modern UI framework with hooks
-- **Vite** - Lightning-fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
-- **react-dropzone** - Drag-and-drop file upload interface
-- **axios** - Promise-based HTTP client
-- **Framer Motion** - Smooth animations and transitions
-
-## 📋 Prerequisites
-
-1. **Python 3.8+** - Recommended via [Anaconda](https://www.anaconda.com/products/individual)
-2. **Node.js 16+** and npm/yarn
-3. **Tesseract OCR**:
-   - **Windows**: [Tesseract at UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) (add to PATH)
-   - **macOS**: `brew install tesseract`
-   - **Ubuntu/Debian**: `sudo apt install tesseract-ocr`
-4. **Poppler** (for PDF processing):
-   - **Windows**: [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases) (add bin to PATH)
-   - **macOS**: `brew install poppler`
-   - **Ubuntu/Debian**: `sudo apt install poppler-utils`
-5. **Google Gemini API key** (Optional) - From [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
+**New to this project? Get started in 30 seconds:**
 
 ```bash
-git clone <repository-url>
+# 1. Clone the repository
+git clone <your-repository-url>
 cd ocrd
+
+# 2. Run the automated setup and launch
+python quick-start.py
 ```
 
-### 2. Backend Setup
+That's it! The script will:
+- ✅ Check all system requirements
+- ✅ Install all dependencies automatically
+- ✅ Set up the environment
+- ✅ Start both servers
+- ✅ Open the application in your browser
 
+## 📋 **System Requirements**
+
+**Minimum Requirements:**
+- **Python 3.8+** (for backend AI processing)
+- **Node.js 16+** (for frontend interface)
+- **Tesseract OCR** (for text extraction)
+- **8GB RAM** (for local AI models)
+- **10GB free disk space** (for model downloads)
+
+**Recommended for Best Performance:**
+- **16GB+ RAM**
+- **NVIDIA GPU** with CUDA support
+- **SSD storage**
+- **Multi-core CPU (8+ cores)**
+
+## 🛠️ **Installation Methods**
+
+### Method 1: Automated Setup (Recommended)
 ```bash
+python setup.py    # Full automated setup
+python quick-start.py    # Setup + launch in one go
+```
+
+### Method 2: Manual Setup
+```bash
+# Backend setup
 cd backend
-
-# Create and activate virtual environment
 python -m venv venv
-
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
+# Windows: venv\Scripts\activate
+# macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
 
-# Install PyTorch (choose based on your system)
-# For CUDA GPU support:
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-# For CPU only:
-pip install torch torchvision torchaudio
-
-# Optional: For improved GPU performance
-pip install xformers  # Requires compatible GPU and CUDA PyTorch
-```
-
-### 3. Environment Configuration
-
-Create `.env` file from template:
-
-```bash
-cp .env.example .env
-```
-
-Configure your environment:
-
-```ini
-# Flask Configuration
-FLASK_ENV=development
-FLASK_DEBUG=True
-
-# NLP Model Configuration
-# Set to 'true' for local models (free, private, offline)
-# Set to 'false' for Google Gemini API (requires API key and billing)
-USE_LOCAL_NLP=true
-
-# Optional: Gemini API Key (only if USE_LOCAL_NLP=false)
-# GEMINI_API_KEY=your_actual_gemini_api_key_here
-```
-
-### 4. Frontend Setup
-
-```bash
-cd frontend
+# Frontend setup  
+cd ../frontend
 npm install
-# or
-yarn install
+
+# Start application
+# Windows: start-dev.bat
+# macOS/Linux: ./start-dev.sh
 ```
 
-### 5. Run the Application
+## 🎯 **Features**
 
-**Easy Start (Windows):**
+### **Core Capabilities**
+- **📄 OCR Processing**: Extract text from PDFs and images
+- **🌍 Multi-Language Translation**: 200+ languages supported
+- **📝 Text Cleanup**: Remove OCR artifacts and formatting issues
+- **📊 Document Summarization**: Generate concise summaries
+- **🔸 Bullet Point Generation**: Create structured bullet points
+- **📋 Document Comparison**: Compare two documents with diff highlighting
+
+### **AI Processing Options**
+- **🏠 Local NLP Models** (Default): Free, private, offline processing
+- **☁️ Google Gemini API**: Fast cloud-based processing (requires API key)
+
+### **Performance Features**
+- **🎮 GPU Acceleration**: 10-20x faster with CUDA support
+- **⚡ Lazy Model Loading**: Fast startup times
+- **🧠 Smart Text Chunking**: Optimized processing for large documents
+- **📊 Progress Tracking**: Real-time processing updates
+
+## 🔧 **Configuration**
+
+### **Environment Setup**
+The application uses a `.env` file for configuration:
+
 ```bash
-.\start-dev.bat
+# Copy the template
+cp env.example .env
+
+# Edit configuration (optional - works with defaults)
 ```
 
-**Easy Start (macOS/Linux):**
+### **Key Settings**
+
+#### **Local NLP (Default - Free)**
 ```bash
-bash ./start-dev.sh
+USE_LOCAL_NLP=true
+# No API key needed - completely free and private
 ```
 
-**Manual Start (Two terminals):**
-
-Terminal 1 - Backend:
+#### **Gemini API (Fast)**
 ```bash
-cd backend
-python app.py
+USE_LOCAL_NLP=false
+GEMINI_API_KEY=your_api_key_here
+# Get key from: https://aistudio.google.com/app/apikey
 ```
 
-Terminal 2 - Frontend:
+#### **Performance Tuning**
 ```bash
-cd frontend
-npm run dev
+# Adjust these based on your hardware:
+MAX_TEXT_LENGTH_TRANSLATION=3000
+MAX_TEXT_LENGTH_CLEANUP=2000
+MAX_TEXT_LENGTH_SUMMARY=3000
+MAX_TEXT_LENGTH_BULLETS=2000
+MAX_CHUNKS_PER_OPERATION=5
 ```
 
-🌐 **Access the application:**
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:5000`
+## 📊 **Performance Comparison**
 
-## 🔧 Configuration Options
+| Operation | Local CPU | Local GPU | Gemini API |
+|-----------|-----------|-----------|------------|
+| **Translation** | 1-3 min | 15-30 sec | 5-10 sec |
+| **Summarization** | 30-60 sec | 10-15 sec | 3-5 sec |
+| **Text Cleanup** | 45-90 sec | 15-20 sec | 5-8 sec |
+| **Bullet Points** | 30-45 sec | 10-15 sec | 3-5 sec |
 
-### Local NLP Models vs Gemini API
+## 🧪 **Testing & Diagnostics**
 
-| Feature | Local Models | Gemini API |
-|---------|-------------|------------|
-| **Cost** | Free | Pay per request |
-| **Privacy** | Fully private | Data sent to Google |
-| **Internet** | Works offline | Requires internet |
-| **Performance** | Depends on hardware | Consistently fast |
-| **Setup** | Automatic download | API key required |
-
-### Supported Languages
-
-**Translation Support (15+ languages):**
-- English, Spanish, French, German, Italian, Portuguese
-- Hindi, Bengali, Tamil, Telugu, Gujarati, Marathi
-- Punjabi, Urdu, Malayalam, Kannada, Assamese
-- Chinese (Simplified/Traditional), Japanese, Korean
-- Arabic, Russian, and more...
-
-## 📚 API Documentation
-
-### Base URL
-```
-http://localhost:5000
+### **System Health Check**
+```bash
+python check-system.py    # Comprehensive system validation
 ```
 
-### Endpoints
-
-#### 🏥 Health Check
-```http
-GET /health
+### **Performance Benchmark**
+```bash
+python benchmark.py    # Test your system's AI performance
 ```
 
-#### 📄 OCR Text Extraction
-```http
-POST /ocr
-Content-Type: multipart/form-data
-
-Body:
-- file: PDF or image file (max 16MB)
-
-Response:
-{
-  "success": true,
-  "extracted_text": "Extracted text content...",
-  "filename": "document.pdf"
-}
+### **Quick Validation**
+```bash
+# Check if everything is working
+curl http://localhost:5000/health    # Backend health
+curl http://localhost:3000    # Frontend accessibility
 ```
 
-#### 🌍 Text Translation
-```http
-POST /translate
-Content-Type: application/json
+## 🚀 **Usage Guide**
 
-Body:
-{
-  "text": "Text to translate",
-  "target_language": "Spanish"
-}
+### **Basic Workflow**
+1. **Start the application**: Run `python quick-start.py` or use startup scripts
+2. **Open browser**: Navigate to `http://localhost:3000`
+3. **Upload document**: Drag & drop or click to upload PDF/image
+4. **Extract text**: Click "Extract Text (OCR)" to process the document
+5. **Use AI features**: Try translation, summarization, cleanup, etc.
+6. **Compare documents**: Upload a second document for comparison
 
-Response:
-{
-  "success": true,
-  "translated_text": "Texto traducido...",
-  "target_language": "Spanish"
-}
-```
-
-#### ✨ Text Cleanup
-```http
-POST /cleanup
-Content-Type: application/json
-
-Body:
-{
-  "text": "Raw OCR text with errors..."
-}
-
-Response:
-{
-  "success": true,
-  "cleaned_text": "Cleaned and formatted text..."
-}
-```
-
-#### 📋 Text Summarization
-```http
-POST /summarize
-Content-Type: application/json
-
-Body:
-{
-  "text": "Long document text to summarize..."
-}
-
-Response:
-{
-  "success": true,
-  "summary": "Concise summary of the document..."
-}
-```
-
-#### 🔗 Bullet Point Generation
-```http
-POST /bullet_points
-Content-Type: application/json
-
-Body:
-{
-  "text": "Text to convert to bullet points..."
-}
-
-Response:
-{
-  "success": true,
-  "bullet_points": "• Key point 1\n• Key point 2..."
-}
-```
-
-#### 🔍 Document Comparison
-```http
-POST /compare
-Content-Type: application/json
-
-Body:
-{
-  "text1": "First document text",
-  "text2": "Second document text"
-}
-
-Response:
-{
-  "success": true,
-  "comparison": {
-    "summary": "Analysis of differences...",
-    "detailed_diff": "Unified diff output...",
-    "html_diff": "HTML formatted diff...",
-    "similarity_ratio": 0.85
-  }
-}
-```
-
-## 📁 Supported File Formats
-
+### **Supported File Formats**
 - **Images**: PNG, JPG, JPEG, GIF, BMP, TIFF
-- **Documents**: PDF (multi-page support)
-- **File Size**: Maximum 16MB per file
-- **Batch Processing**: Up to 2 files for comparison
+- **Documents**: PDF (converted to images for OCR)
+- **Size Limit**: 16MB per file
 
-## 🏗️ Project Structure
+### **Language Support**
+- **Translation**: 200+ languages via NLLB-200 model
+- **Popular languages**: Spanish, French, German, Italian, Portuguese, Chinese, Japanese, Arabic, Russian, Hindi, and many more
 
+## 🔍 **Troubleshooting**
+
+### **Common Issues**
+
+#### **"Tesseract not found"**
+```bash
+# Windows: Download from UB Mannheim
+# https://github.com/UB-Mannheim/tesseract/wiki
+
+# macOS:
+brew install tesseract
+
+# Ubuntu/Debian:
+sudo apt install tesseract-ocr
+```
+
+#### **Slow Performance**
+```bash
+# Check your system performance
+python benchmark.py
+
+# Optimize settings in .env
+MAX_TEXT_LENGTH_TRANSLATION=2000
+MAX_CHUNKS_PER_OPERATION=3
+
+# Consider GPU acceleration or Gemini API
+```
+
+#### **Memory Issues**
+```bash
+# Reduce text processing limits
+MAX_TEXT_LENGTH_CLEANUP=1500
+MAX_TEXT_LENGTH_SUMMARY=2000
+
+# Close other applications
+# Consider upgrading RAM
+```
+
+#### **Port Conflicts**
+```bash
+# If ports 3000 or 5000 are in use:
+# Kill existing processes or change ports in:
+# - frontend/vite.config.js (frontend port)
+# - backend/app.py (backend port)
+```
+
+### **Getting Help**
+1. **Run diagnostics**: `python check-system.py`
+2. **Check performance**: `python benchmark.py`
+3. **Review logs**: Check terminal output for error messages
+4. **Read guides**: See `PERFORMANCE_GUIDE.md` and `GETTING_STARTED.md`
+
+## 📈 **Performance Optimization**
+
+### **Quick Performance Wins**
+1. **Enable GPU acceleration**: Install CUDA-compatible PyTorch
+2. **Adjust text limits**: Reduce processing lengths in `.env`
+3. **Use Gemini API**: For consistently fast processing
+4. **Upgrade hardware**: More RAM and faster CPU/GPU
+
+### **Detailed Optimization**
+See `PERFORMANCE_GUIDE.md` for comprehensive optimization strategies including:
+- Hardware recommendations
+- Model-specific optimizations
+- Memory management
+- Troubleshooting guides
+
+## 🏗️ **Architecture**
+
+### **Backend (Python/Flask)**
+- **OCR Processing**: Tesseract + pdf2image
+- **AI Models**: Transformers (NLLB-200, DistilBART, DistilGPT2)
+- **API Integration**: Google Gemini API support
+- **File Handling**: Multi-format document processing
+
+### **Frontend (React/Vite)**
+- **Modern UI**: React with Tailwind CSS
+- **File Upload**: Drag & drop with react-dropzone
+- **Real-time Updates**: Progress tracking and notifications
+- **Responsive Design**: Works on desktop and mobile
+
+### **Project Structure**
 ```
 ocrd/
 ├── backend/
-│   ├── app.py                    # Main Flask application
-│   ├── requirements.txt          # Python dependencies
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── ocr_processor.py      # OCR functionality
-│   │   └── gemini_client.py      # AI client (Gemini + local models)
-│   └── venv/                     # Virtual environment
+│   ├── app.py                 # Flask application
+│   ├── requirements.txt       # Python dependencies
+│   └── utils/
+│       ├── ocr_processor.py   # OCR functionality
+│       └── gemini_client.py   # AI processing
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx               # Main React component
-│   │   ├── main.jsx              # React entry point
-│   │   ├── components/           # React components
-│   │   │   ├── FileUpload.jsx
-│   │   │   ├── LanguageSelector.jsx
-│   │   │   ├── ActionButtons.jsx
-│   │   │   ├── ResultsDisplay.jsx
-│   │   │   ├── DocumentComparison.jsx
-│   │   │   └── LoadingSpinner.jsx
-│   │   └── styles/
-│   │       └── App.css           # Custom styles
-│   ├── package.json              # Node.js dependencies
-│   ├── vite.config.js            # Vite configuration
-│   └── tailwind.config.js        # Tailwind CSS config
-├── .env.example                  # Environment template
-├── start-dev.bat                 # Windows dev script
-├── start-dev.sh                  # Unix dev script
-├── README.md                     # This file
-└── SETUP_GUIDE.md               # Detailed setup guide
+│   │   ├── App.jsx           # Main React component
+│   │   └── components/       # UI components
+│   ├── package.json          # Node.js dependencies
+│   └── vite.config.js        # Build configuration
+├── setup.py                  # Automated setup script
+├── check-system.py           # System diagnostics
+├── benchmark.py              # Performance testing
+├── quick-start.py            # One-click launcher
+└── start-dev.*               # Development servers
 ```
 
-## 🔧 Development
+## 🚀 **Deployment**
 
-### Adding New Features
-
-1. **Backend**: Add routes in `app.py`, utilities in `utils/`
-2. **Frontend**: Create components in `src/components/`
-3. **API Integration**: Update API calls in `App.jsx`
-
-### Code Quality
-
+### **Development**
 ```bash
-# Backend linting
-cd backend
-flake8 .
-
-# Frontend linting
-cd frontend
-npm run lint
+python quick-start.py    # Local development with hot reload
 ```
 
-### Testing
-
+### **Production**
 ```bash
-# Backend tests
-cd backend
-python -m pytest tests/
+# Build frontend
+cd frontend && npm run build
 
-# Frontend tests
-cd frontend
-npm run test
+# Start production backend
+cd backend && python app.py
+
+# Serve frontend (use nginx, apache, or similar)
 ```
 
-## 🚀 Deployment
-
-### Backend (Railway/Render/Heroku)
-
-1. Create `Procfile`:
-```
-web: gunicorn app:app
+### **Docker Deployment**
+```dockerfile
+# Dockerfile example (create as needed)
+FROM python:3.9-slim
+# Add your Docker configuration
 ```
 
-2. Set environment variables:
-```
-USE_LOCAL_NLP=true
-FLASK_ENV=production
-FLASK_DEBUG=False
-```
+## 🤝 **Contributing**
 
-3. For Gemini API (optional):
-```
-USE_LOCAL_NLP=false
-GEMINI_API_KEY=your_production_key
-```
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make changes and test**: `python check-system.py && python benchmark.py`
+4. **Commit changes**: `git commit -m 'Add amazing feature'`
+5. **Push to branch**: `git push origin feature/amazing-feature`
+6. **Open a Pull Request**
 
-### Frontend (Vercel/Netlify)
-
-1. Update API URL in `src/App.jsx`:
-```javascript
-const API_BASE_URL = 'https://your-backend-url.com'
-```
-
-2. Build and deploy:
-```bash
-npm run build
-# Deploy dist/ folder
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. **Tesseract OCR Issues**
-```bash
-# Verify installation
-tesseract --version
-
-# Windows: Add to PATH or specify in ocr_processor.py
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-```
-
-#### 2. **Local NLP Model Loading**
-- **First run**: Models download automatically (~2-3GB)
-- **Memory issues**: Use CPU-only PyTorch for limited RAM
-- **GPU issues**: Install CUDA-compatible PyTorch
-
-#### 3. **CORS Errors**
-```python
-# backend/app.py
-CORS(app, origins=['http://localhost:3000'])
-```
-
-#### 4. **File Upload Issues**
-- Max size: 16MB
-- Supported formats: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF
-- Check file permissions
-
-#### 5. **Translation Errors**
-- Verify target language is supported
-- Check text chunking for very long documents
-- Monitor memory usage with local models
-
-### Performance Optimization
-
-1. **OCR**: Use smaller images for faster processing
-2. **NLP Models**: GPU acceleration with CUDA
-3. **Memory**: Adjust chunk sizes for large documents
-4. **API**: Implement request caching for repeated translations
-
-### Error Debugging
-
-Enable detailed logging:
-```python
-# backend/app.py
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-Check browser console for frontend errors.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
-
-### Development Guidelines
-
-- Follow PEP 8 for Python code
-- Use ESLint for JavaScript/React
-- Add tests for new features
-- Update documentation
-
-## 📄 License
+## 📝 **License**
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🙏 **Acknowledgments**
 
-**Getting Help:**
-1. Check this README and troubleshooting section
-2. Review the [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed setup
-3. Search existing GitHub issues
-4. Create a new issue with:
-   - Operating system and versions
-   - Error messages and logs
-   - Steps to reproduce
+- **Tesseract OCR** for text extraction
+- **Hugging Face Transformers** for AI models
+- **Google Gemini** for fast AI processing
+- **React & Vite** for the modern frontend
+- **Flask** for the robust backend
 
-**Common Support Topics:**
-- OCR accuracy improvement
-- Adding new languages
-- Performance optimization
-- Deployment configuration
+## 📞 **Support**
 
-## 📈 Changelog
-
-### v1.2.0 (Latest)
-- ✅ **Fixed**: Local NLP model integration with proper tokenizer access
-- ✅ **Enhanced**: Smart text chunking for long documents
-- ✅ **Added**: Comprehensive error handling and logging
-- ✅ **Improved**: Language selector robustness
-- ✅ **Updated**: Documentation and troubleshooting guide
-
-### v1.1.0
-- ✅ **Added**: Local NLP model support (NLLB, DistilBART, DistilGPT2)
-- ✅ **Enhanced**: Multi-language translation capabilities
-- ✅ **Fixed**: CORS configuration and endpoint routing
-- ✅ **Improved**: UI responsiveness and error handling
-
-### v1.0.0
-- 🎉 **Initial Release**: Full OCR, translation, and comparison features
-- 🎨 **UI**: React frontend with Tailwind CSS
-- 🔧 **Backend**: Flask API with Gemini integration
-- 📁 **Support**: Multiple file formats and languages
+- **📖 Documentation**: Check `GETTING_STARTED.md` and `PERFORMANCE_GUIDE.md`
+- **🔧 Diagnostics**: Run `python check-system.py`
+- **📊 Performance**: Run `python benchmark.py`
+- **🐛 Issues**: Open an issue on GitHub
+- **💬 Discussions**: Join our community discussions
 
 ---
 
-**Built with ❤️ for legal document processing**
-
-*Need help? Check our [troubleshooting guide](#🐛-troubleshooting) or [create an issue](https://github.com/your-repo/issues).* 
+**🎉 Ready to process your legal documents with AI? Run `python quick-start.py` and get started in seconds!** 

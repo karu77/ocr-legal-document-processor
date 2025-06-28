@@ -94,7 +94,7 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
           className="text-sm text-gray-500 dark:text-gray-500"
         >
-          This may take a few moments...
+          {operation?.includes('Translation') ? 'Translation in progress... Large texts are processed in chunks for better performance.' : 'This may take a few moments...'}
         </motion.p>
       </div>
 

@@ -45,7 +45,8 @@ const ActionButtons = ({
   onCompare,
   loading,
   hasFiles,
-  results = {}
+  results = {},
+  currentOperation = ''
 }) => {
   
   // Check if OCR text exists for hasText
