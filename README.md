@@ -1,152 +1,167 @@
 # OCR Legal Document Processor
 
-A powerful AI-driven application for processing legal documents with OCR, translation, summarization, and document comparison capabilities.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Node.js Version](https://img.shields.io/badge/node.js-16+-green.svg)](https://nodejs.org/)
 
-## 🚀 **Quick Start (One-Click Setup)**
+**A powerful, AI-driven application designed to streamline legal document processing with OCR, multi-language translation, and advanced text analysis.**
 
-**New to this project? Get started in 30 seconds:**
+This tool provides a modern, intuitive interface for extracting text from legal documents, cleaning up OCR artifacts, translating content into over 50 languages, and generating AI-powered insights like summaries and key points. It's built for performance, privacy, and ease of use, with options for both local, offline processing and high-speed cloud-based analysis.
 
-```bash
-# 1. Clone the repository
-git clone <your-repository-url>
-cd ocrd
+![Application Screenshot](https://user-images.githubusercontent.com/12345/67890.png) 
+*Note: Add a real screenshot here after running the application.*
 
-# 2. Run the automated setup and launch
-python quick-start.py
-```
+---
 
-That's it! The script will:
-- ✅ Check all system requirements
-- ✅ Install all dependencies automatically
-- ✅ Set up the environment
-- ✅ Start both servers
-- ✅ Open the application in your browser
+## 🚀 Key Features
 
-## 📋 **System Requirements**
+-   **One-Click Setup**: Get started in minutes with a fully automated setup script.
+-   **High-Accuracy OCR**: Extract text from PDFs and various image formats.
+-   **Multi-Language Translation**: Translate documents to over 50 languages using local or cloud AI.
+-   **AI-Powered Analysis**:
+    -   **Text Cleanup**: Automatically correct OCR errors and improve readability.
+    -   **Summarization**: Generate concise summaries of long documents.
+    -   **Key Points**: Extract a bulleted list of key information.
+    -   **Document Comparison**: View a side-by-side "diff" of two documents.
+-   **Performance Optimized**:
+    -   **GPU Acceleration**: Automatically uses NVIDIA GPUs for 10-20x faster processing.
+    -   **CPU Fallback**: Runs smoothly on systems without a dedicated GPU.
+    -   **Lazy Loading**: Optimized for fast startup and efficient memory usage.
+-   **Privacy-Focused**: Run entirely on your local machine with `USE_LOCAL_NLP=true`. No data ever leaves your system.
+-   **Modern UI**: A clean, responsive, and user-friendly interface with dark mode support.
+-   **Comprehensive Automation**: Includes scripts for system checking, benchmarking, and automated setup.
 
-**Minimum Requirements:**
-- **Python 3.8+** (for backend AI processing)
-- **Node.js 16+** (for frontend interface)
-- **Tesseract OCR** (for text extraction)
-- **8GB RAM** (for local AI models)
-- **10GB free disk space** (for model downloads)
+---
 
-**Recommended for Best Performance:**
-- **16GB+ RAM**
-- **NVIDIA GPU** with CUDA support
-- **SSD storage**
-- **Multi-core CPU (8+ cores)**
+## ⚡ Quick Start: One-Click Setup
 
-## 🛠️ **Installation Methods**
+Get the application running in under 2 minutes with our automated quick-start script.
 
-### Method 1: Automated Setup (Recommended)
-```bash
-python setup.py    # Full automated setup
-python quick-start.py    # Setup + launch in one go
-```
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/karu77/ocr-legal-document-processor.git
+    cd ocr-legal-document-processor
+    ```
 
-### Method 2: Manual Setup
-```bash
-# Backend setup
-cd backend
-python -m venv venv
-# Windows: venv\Scripts\activate
-# macOS/Linux: source venv/bin/activate
-pip install -r requirements.txt
+2.  **Run the Quick-Start Script**:
+    ```bash
+    python quick-start.py
+    ```
+    This script will:
+    -   ✅ **Verify** system prerequisites (Python, Node.js, Tesseract).
+    -   ✅ **Install** all backend and frontend dependencies.
+    -   ✅ **Configure** your environment files.
+    -   ✅ **Launch** both backend and frontend servers.
+    -   ✅ **Open** the application in your default web browser.
 
-# Frontend setup  
-cd ../frontend
-npm install
+---
 
-# Start application
-# Windows: start-dev.bat
-# macOS/Linux: ./start-dev.sh
-```
+## 📋 System Requirements
 
-## 🎯 **Features**
+Before you begin, ensure you have the following installed:
 
-### **Core Capabilities**
-- **📄 OCR Processing**: Extract text from PDFs and images
-- **🌍 Multi-Language Translation**: 200+ languages supported
-- **📝 Text Cleanup**: Remove OCR artifacts and formatting issues
-- **📊 Document Summarization**: Generate concise summaries
-- **🔸 Bullet Point Generation**: Create structured bullet points
-- **📋 Document Comparison**: Compare two documents with diff highlighting
+-   **Python 3.8+**
+-   **Node.js 16+**
+-   **Tesseract OCR**: Required for text extraction.
+    -   **Windows**: [Download and install from UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). **Ensure you add it to your system's PATH.**
+    -   **macOS**: `brew install tesseract`
+    -   **Ubuntu/Debian**: `sudo apt-get install tesseract-ocr`
+-   **Poppler**: Required for PDF processing.
+    -   **Windows**: [Download Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases/), unzip, and add the `bin` directory to your PATH.
+    -   **macOS**: `brew install poppler`
+    -   **Ubuntu/Debian**: `sudo apt-get install poppler-utils`
 
-### **AI Processing Options**
-- **🏠 Local NLP Models** (Default): Free, private, offline processing
-- **☁️ Google Gemini API**: Fast cloud-based processing (requires API key)
+*Our `check-system.py` script can validate these for you automatically.*
 
-### **Performance Features**
-- **🎮 GPU Acceleration**: 10-20x faster with CUDA support
-- **⚡ Lazy Model Loading**: Fast startup times
-- **🧠 Smart Text Chunking**: Optimized processing for large documents
-- **📊 Progress Tracking**: Real-time processing updates
+---
 
-## 🔧 **Configuration**
+## 🛠️ Manual Setup
 
-### **Environment Setup**
-The application uses a `.env` file for configuration:
+If you prefer to set up the project manually:
 
-```bash
-# Copy the template
-cp env.example .env
+1.  **Environment Setup**:
+    ```bash
+    cp env.example .env 
+    # Edit .env to choose between local NLP and Gemini API
+    ```
 
-# Edit configuration (optional - works with defaults)
-```
+2.  **Backend Setup**:
+    ```bash
+    cd backend
+    python -m venv venv
+    # On Windows: venv\Scripts\activate
+    # On macOS/Linux: source venv/bin/activate
+    pip install -r requirements.txt
+    ```
 
-### **Key Settings**
+3.  **Frontend Setup**:
+    ```bash
+    cd frontend
+    npm install
+    ```
 
-#### **Local NLP (Default - Free)**
-```bash
-USE_LOCAL_NLP=true
-# No API key needed - completely free and private
-```
+4.  **Run the Application**:
+    -   **Windows**: `start-dev.bat`
+    -   **macOS/Linux**: `chmod +x start-dev.sh && ./start-dev.sh`
 
-#### **Gemini API (Fast)**
-```bash
-USE_LOCAL_NLP=false
-GEMINI_API_KEY=your_api_key_here
-# Get key from: https://aistudio.google.com/app/apikey
-```
+The application will be available at `http://localhost:3000`.
 
-#### **Performance Tuning**
-```bash
-# Adjust these based on your hardware:
-MAX_TEXT_LENGTH_TRANSLATION=3000
-MAX_TEXT_LENGTH_CLEANUP=2000
-MAX_TEXT_LENGTH_SUMMARY=3000
-MAX_TEXT_LENGTH_BULLETS=2000
-MAX_CHUNKS_PER_OPERATION=5
-```
+---
 
-## 📊 **Performance Comparison**
+## ⚙️ Configuration
 
-| Operation | Local CPU | Local GPU | Gemini API |
-|-----------|-----------|-----------|------------|
-| **Translation** | 1-3 min | 15-30 sec | 5-10 sec |
-| **Summarization** | 30-60 sec | 10-15 sec | 3-5 sec |
-| **Text Cleanup** | 45-90 sec | 15-20 sec | 5-8 sec |
-| **Bullet Points** | 30-45 sec | 10-15 sec | 3-5 sec |
+### Local NLP vs. Gemini API
 
-## 🧪 **Testing & Diagnostics**
+You can choose your AI processing engine by editing the `.env` file.
 
-### **System Health Check**
-```bash
-python check-system.py    # Comprehensive system validation
-```
+-   `USE_LOCAL_NLP=true` (Default)
+    -   **Pros**: Free, private, works offline.
+    -   **Cons**: Slower, requires more RAM/CPU resources. Recommended for privacy-sensitive tasks.
 
-### **Performance Benchmark**
-```bash
-python benchmark.py    # Test your system's AI performance
-```
+-   `USE_LOCAL_NLP=false`
+    -   **Pros**: Extremely fast, state-of-the-art results.
+    -   **Cons**: Requires a Google Gemini API key and sends data to Google.
+    -   To use this, set `GEMINI_API_KEY=your_api_key_here` in your `.env` file.
 
-### **Quick Validation**
-```bash
-# Check if everything is working
-curl http://localhost:5000/health    # Backend health
-curl http://localhost:3000    # Frontend accessibility
-```
+### Performance Tuning
+
+You can adjust text length limits and other performance settings in the `.env` file to balance speed and quality. For a deep dive, see our [**Performance Optimization Guide**](PERFORMANCE_GUIDE.md).
+
+---
+
+## 🔬 Included Utility Scripts
+
+This project comes with several scripts to ensure a smooth experience.
+
+-   **`check-system.py`**: A comprehensive diagnostic tool that validates your system dependencies, file integrity, and project configuration. Run it if you encounter any issues.
+    ```bash
+    python check-system.py
+    ```
+
+-   **`benchmark.py`**: Test your system's AI processing performance. This script provides a detailed analysis and recommendations based on your hardware.
+    ```bash
+    python benchmark.py
+    ```
+
+-   **`setup.py`**: An automated script that handles all setup tasks, including dependency installation and environment configuration. It's called by `quick-start.py` but can also be run standalone.
+    ```bash
+    python setup.py
+    ```
+
+---
+
+## 🔧 Troubleshooting
+
+-   **"Tesseract not found"**: Ensure Tesseract is installed and its location is in your system's PATH. Restart your terminal after making changes.
+-   **"Poppler not found"**: Ensure Poppler is installed and its `bin` directory is in your system's PATH.
+-   **Slow Performance**: See the [**Performance Guide**](PERFORMANCE_GUIDE.md) for optimization tips, including enabling GPU acceleration.
+-   **Errors during setup**: Run `python check-system.py` for a detailed diagnostic report.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## 🚀 **Usage Guide**
 
@@ -303,10 +318,6 @@ FROM python:3.9-slim
 4. **Commit changes**: `git commit -m 'Add amazing feature'`
 5. **Push to branch**: `git push origin feature/amazing-feature`
 6. **Open a Pull Request**
-
-## 📝 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 **Acknowledgments**
 
