@@ -12,6 +12,7 @@ from utils.ocr_processor import (
     process_ocr, clean_text, summarize_text, 
     extract_key_points, translate_text, compare_documents
 )
+from utils.document_processor import document_processor, serialize_extracted_content
 from utils.database import db_manager
 from utils.auth import auth_manager, require_auth, optional_auth
 from bson import ObjectId
@@ -176,7 +177,7 @@ def health_check():
 @app.route('/api/process', methods=['POST'])
 @optional_auth
 def process_document():
-    """Extract text from uploaded image or PDF using OCR"""
+    """Extract text from uploaded image or PDF using enhanced OCR system"""
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided', 'success': False}), 400
@@ -184,9 +185,6 @@ def process_document():
         file = request.files['file']
         if file.filename == '':
             return jsonify({'error': 'No file selected', 'success': False}), 400
-            
-        if not allowed_file(file.filename):
-            return jsonify({'error': 'File type not supported', 'success': False}), 400
         
         # Save file temporarily  
         filename = secure_filename(file.filename)
@@ -195,7 +193,42 @@ def process_document():
         file.save(temp_path)
         
         try:
-            # Handle different file types
+            # Use the new enhanced document processor
+            if document_processor.is_supported(temp_path):
+                try:
+                    result = document_processor.process_document(temp_path, filename)
+                    
+                    # Return enhanced response with metadata and tables
+                    response_data = {
+                        'success': True,
+                        'extracted_text': result.text,
+                        'raw_text': result.text,
+                        'filename': filename,
+                        'metadata': {
+                            'file_type': result.metadata.file_type,
+                            'mime_type': result.metadata.mime_type,
+                            'file_size': result.metadata.file_size,
+                            'language': result.metadata.language,
+                            'page_count': result.metadata.page_count,
+                            'author': result.metadata.author,
+                            'title': result.metadata.title,
+                            'word_count': result.metadata.word_count,
+                            'character_count': result.metadata.character_count,
+                        },
+                        'processing_method': result.processing_method,
+                        'ocr_confidence': result.ocr_confidence,
+                        'tables': result.tables if result.tables else [],
+                        'errors': result.errors if result.errors else []
+                    }
+                    
+                    return jsonify(response_data)
+                    
+                except Exception as e:
+                    app.logger.error(f"Enhanced processing failed for {filename}: {str(e)}")
+                    # Fallback to original processing
+                    pass
+            
+            # Fallback to original processing for unsupported files or errors
             file_extension = os.path.splitext(filename)[1].lower()
             
             if file_extension in ['.doc', '.docx']:

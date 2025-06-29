@@ -32,4 +32,27 @@ translate>=3.6.1
 # NLP Libraries
 nltk>=3.8.1
 spacy>=3.7.2
-PyJWT>=2.3.0 
+PyJWT>=2.3.0
+
+# New Document Processing Dependencies
+PyMuPDF>=1.23.0  # fitz for PDF processing
+pdfplumber>=0.9.0  # Enhanced PDF table extraction
+mammoth>=1.6.0  # DOC file processing
+python-pptx>=0.6.21  # PPTX file processing
+pandas>=2.0.0  # Excel/CSV processing
+openpyxl>=3.1.0  # Excel file support
+xlrd>=2.0.1  # Legacy Excel support
+beautifulsoup4>=4.12.0  # HTML parsing
+markdown2>=2.4.0  # Markdown processing
+langdetect>=1.0.9  # Language detection
+python-magic>=0.4.27  # File type detection
+easyocr>=1.7.0  # Enhanced OCR (optional)
+
+# FastAPI Dependencies
+fastapi>=0.104.0  # FastAPI framework
+uvicorn>=0.24.0  # ASGI server
+python-multipart>=0.0.6  # File upload support
+
+# Testing dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0 

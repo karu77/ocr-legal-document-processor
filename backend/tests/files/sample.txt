@@ -1,0 +1,16 @@
+This is a sample legal document for testing the OCR Legal Document Processor.
+
+TERMS AND CONDITIONS
+
+1. This document contains multiple paragraphs for testing text extraction.
+2. It includes numbered lists and various formatting.
+3. The system should extract this text accurately.
+
+PARTIES INVOLVED:
+- Party A: Legal Corporation Inc.
+- Party B: Individual Client
+
+EFFECTIVE DATE: January 1, 2024
+EXPIRATION DATE: December 31, 2024
+
+This document serves as a comprehensive test case for the document processing system. 

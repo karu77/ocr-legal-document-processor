@@ -1,0 +1,41 @@
+{
+  "contract": {
+    "id": "LEGAL-2024-001",
+    "title": "Software Development Agreement",
+    "parties": {
+      "client": {
+        "name": "TechCorp Industries",
+        "address": "123 Business Ave, Suite 100",
+        "contact": "john.doe@techcorp.com"
+      },
+      "contractor": {
+        "name": "DevStudio LLC",
+        "address": "456 Developer St",
+        "contact": "info@devstudio.com"
+      }
+    },
+    "terms": {
+      "duration": "12 months",
+      "start_date": "2024-01-01",
+      "end_date": "2024-12-31",
+      "payment": {
+        "total_amount": 120000,
+        "currency": "USD",
+        "schedule": "monthly",
+        "amount_per_month": 10000
+      }
+    },
+    "deliverables": [
+      "Web application frontend",
+      "Backend API development",
+      "Database design and implementation",
+      "Testing and quality assurance",
+      "Documentation and user manual"
+    ],
+    "legal_clauses": {
+      "confidentiality": "Both parties agree to maintain confidentiality of proprietary information.",
+      "intellectual_property": "All developed software remains property of the client.",
+      "termination": "Either party may terminate with 30 days written notice."
+    }
+  }
+} 

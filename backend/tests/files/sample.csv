@@ -1,0 +1,9 @@
+Case ID,Case Type,Client Name,Attorney,Status,Filing Date,Court,Amount
+CASE-001,Contract Dispute,ABC Corporation,John Smith,Active,2024-01-15,Superior Court,$250000
+CASE-002,Personal Injury,Jane Doe,Sarah Johnson,Pending,2024-02-01,District Court,$75000
+CASE-003,Employment Law,XYZ Inc,Michael Brown,Closed,2024-01-20,Federal Court,$150000
+CASE-004,Intellectual Property,TechStart LLC,Emily Davis,Active,2024-02-10,Patent Court,$500000
+CASE-005,Real Estate,Property Holdings,Robert Wilson,Pending,2024-01-30,County Court,$300000
+CASE-006,Family Law,Private Client,Lisa Anderson,Active,2024-02-05,Family Court,$25000
+CASE-007,Criminal Defense,Individual,David Miller,Closed,2024-01-25,Criminal Court,$50000
+CASE-008,Corporate Law,BigCorp Industries,Jennifer Taylor,Pending,2024-02-15,Business Court,$1000000 
