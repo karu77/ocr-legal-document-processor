@@ -1,240 +1,213 @@
-import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useState, Fragment } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Tab } from '@headlessui/react';
 import { 
   DocumentTextIcon, 
+  SparklesIcon, 
   GlobeAltIcon, 
-  SparklesIcon,
-  ClipboardDocumentListIcon,
-  ListBulletIcon,
-  EyeIcon,
+  ListBulletIcon, 
+  DocumentMagnifyingGlassIcon,
   ClipboardIcon,
   CheckCircleIcon,
-  DocumentArrowDownIcon
-} from '@heroicons/react/24/outline'
-import { toast } from 'react-hot-toast'
+  DocumentArrowDownIcon,
+  LanguageIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
 
 const ResultsDisplay = ({ results }) => {
-  const [activeTab, setActiveTab] = useState('ocr')
-  const [copiedStates, setCopiedStates] = useState({})
+  const [copiedTab, setCopiedTab] = useState('');
 
   const tabs = [
-    {
-      id: 'ocr',
-      name: 'Extracted Text',
-      icon: DocumentTextIcon,
-      content: results.ocrText,
+    { 
+      id: 'extracted', 
+      name: 'Extracted Text', 
+      content: results.ocrText, 
+      icon: DocumentTextIcon, 
       color: 'from-blue-500 to-indigo-500',
-      description: 'Raw OCR extracted text from documents'
+      description: 'Raw OCR extracted text from documents',
+      lang: results.detectedLanguage
     },
-    {
-      id: 'cleaned',
-      name: 'Cleaned Text',
+    { 
+      id: 'cleaned', 
+      name: 'Cleaned Text', 
+      content: results.cleanedText, 
       icon: SparklesIcon,
-      content: results.cleanedText,
-      color: 'from-green-500 to-teal-500',
-      description: 'Text cleaned of OCR artifacts and formatting issues'
-    },
-    {
-      id: 'translated',
-      name: 'Translation',
-      icon: GlobeAltIcon,
-      content: results.translatedText,
       color: 'from-purple-500 to-pink-500',
-      description: 'AI-powered translation to target language'
+      description: 'AI-enhanced and corrected text'
     },
-    {
-      id: 'summary',
-      name: 'Summary',
-      icon: ClipboardDocumentListIcon,
-      content: results.summary,
-      color: 'from-orange-500 to-red-500',
-      description: 'AI-generated document summary'
+    { 
+      id: 'translated', 
+      name: 'Translated Text', 
+      content: results.translatedText, 
+      icon: GlobeAltIcon,
+      color: 'from-green-500 to-teal-500',
+      description: 'Document translated to your target language'
     },
-    {
-      id: 'bullets',
-      name: 'Key Points',
+    { 
+      id: 'summary', 
+      name: 'Summary', 
+      content: results.summary, 
+      icon: DocumentMagnifyingGlassIcon,
+      color: 'from-yellow-500 to-orange-500',
+      description: 'Concise AI-generated summary'
+    },
+    { 
+      id: 'bullets', 
+      name: 'Key Points', 
+      content: results.bulletPoints, 
       icon: ListBulletIcon,
-      content: results.bulletPoints,
-      color: 'from-cyan-500 to-blue-500',
-      description: 'Key points extracted as bullet list'
-    }
-  ]
-
-  const availableTabs = tabs.filter(tab => tab.content)
+      color: 'from-red-500 to-rose-500',
+      description: 'Bulleted list of key information'
+    },
+  ];
 
   const copyToClipboard = async (content, tabId) => {
+    if (!content) return;
     try {
-      await navigator.clipboard.writeText(content)
-      setCopiedStates(prev => ({ ...prev, [tabId]: true }))
-      toast.success('Copied to clipboard!')
-      
-      setTimeout(() => {
-        setCopiedStates(prev => ({ ...prev, [tabId]: false }))
-      }, 2000)
+      await navigator.clipboard.writeText(content);
+      setCopiedTab(tabId);
+      toast.success('Copied to clipboard!');
+      setTimeout(() => setCopiedTab(''), 2000);
     } catch (err) {
-      toast.error('Failed to copy to clipboard')
+      toast.error('Failed to copy text.');
+      console.error('Failed to copy: ', err);
     }
-  }
-
+  };
+  
   const downloadAsFile = (content, filename, tabName) => {
-    const blob = new Blob([content], { type: 'text/plain' })
+    if (!content) return
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${filename || 'document'}_${tabName.toLowerCase().replace(' ', '_')}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}_${tabName}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    toast.success(`Downloaded ${tabName}!`)
+    toast.success(`Downloading ${tabName} as a file`)
   }
-
-  if (availableTabs.length === 0) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center border border-gray-200 dark:border-gray-700"
-      >
-        <EyeIcon className="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
-        <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
-          No Results Yet
-        </h3>
-        <p className="text-gray-500 dark:text-gray-400">
-          Upload documents and start processing to see results here.
-        </p>
-      </motion.div>
-    )
-  }
-
-  // Set active tab to the first available tab if current active tab has no content
-  const currentActiveTab = availableTabs.find(tab => tab.id === activeTab) || availableTabs[0]
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+      transition={{ duration: 0.5 }}
+      className="w-full"
     >
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-        <div className="flex overflow-x-auto scrollbar-hide">
-          {availableTabs.map((tab, index) => {
-            const Icon = tab.icon
-            const isActive = currentActiveTab.id === tab.id
-            
-            return (
-              <motion.button
+      <div className="w-full">
+        <Tab.Group>
+          <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 dark:bg-gray-700 p-1">
+            {tabs.map((tab) => (
+              <Tab
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center space-x-3 px-6 py-4 font-medium text-sm whitespace-nowrap transition-all duration-300 ${ 
-                  isActive
-                    ? 'text-blue-700 dark:text-blue-300 bg-white dark:bg-gray-800 shadow-t-lg'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-                whileHover={{ y: -1 }}
-                whileTap={{ y: 0 }}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
+                disabled={!tab.content}
+                className={({ selected }) =>
+                  `w-full relative rounded-lg py-2.5 px-3 text-sm font-medium leading-5
+                  focus:outline-none transition-all duration-200
+                  ${
+                    selected
+                      ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/[0.5] dark:hover:bg-gray-600/[0.5]'
+                  }
+                  ${!tab.content ? 'opacity-50 cursor-not-allowed' : ''}`
+                }
               >
-                <Icon className="w-5 h-5" />
-                <span>{tab.name}</span>
-                
-                {/* Active indicator */}
-                {isActive && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${tab.color} rounded-t-lg`}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                )}
-              </motion.button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="p-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentActiveTab.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-4"
-          >
-            {/* Header */}
-            <motion.div 
+                <div className="flex items-center justify-center">
+                  <tab.icon className="w-5 h-5 mr-2" />
+                  <span>{tab.name}</span>
+                  {tab.id === 'extracted' && tab.lang && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                      <LanguageIcon className="w-4 h-4 mr-1" />
+                      {tab.lang}
+                    </span>
+                  )}
+                </div>
+              </Tab>
+            ))}
+          </Tab.List>
+          
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={results.filename} // Re-render when filename changes
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
-              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4"
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center space-x-3">
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${currentActiveTab.color} flex items-center justify-center shadow-lg`}>
-                  <currentActiveTab.icon className="w-6 h-6 text-white" />
+              {results.ocrWarning && (
+                <div className="mt-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-300 rounded-r-lg">
+                  <div className="flex">
+                    <div className="py-1">
+                      <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500 mr-3" />
+                    </div>
+                    <div>
+                      <p className="font-bold">OCR Warning</p>
+                      <p className="text-sm">{results.ocrWarning}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                    {currentActiveTab.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {currentActiveTab.description}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Action Buttons */}
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15, duration: 0.3 }}
-                className="flex items-center space-x-2"
-              >
-                <motion.button
-                  onClick={() => copyToClipboard(currentActiveTab.content, currentActiveTab.id)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-medium text-sm transition-all duration-300 hover:shadow-md"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {copiedStates[currentActiveTab.id] ? (
-                    <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <ClipboardIcon className="w-5 h-5" />
-                  )}
-                  <span>{copiedStates[currentActiveTab.id] ? 'Copied!' : 'Copy'}</span>
-                </motion.button>
-
-                <motion.button
-                  onClick={() => downloadAsFile(currentActiveTab.content, results.filename, currentActiveTab.name)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-700 hover:bg-blue-200 dark:hover:bg-blue-600 text-blue-700 dark:text-blue-200 rounded-xl font-medium text-sm transition-all duration-300 hover:shadow-md"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <DocumentArrowDownIcon className="w-5 h-5" />
-                  <span>Download</span>
-                </motion.button>
-              </motion.div>
+              )}
             </motion.div>
-            
-            {/* Textarea for Content */}
-            <motion.textarea
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              transition={{ delay: 0.2, duration: 0.4 }}
-              value={currentActiveTab.content}
-              readOnly
-              rows={15} // Adjust rows as needed, or use a dynamic height solution
-              className="w-full p-4 font-mono text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y min-h-[150px] text-gray-800 dark:text-gray-200 transition-colors duration-300"
-            />
-          </motion.div>
-        </AnimatePresence>
+          </AnimatePresence>
+
+          <Tab.Panels className="mt-2">
+            {tabs.map((tab) => (
+              <Tab.Panel
+                key={tab.id}
+                className="rounded-xl bg-white dark:bg-gray-800/50 p-6 min-h-[300px] border border-gray-200 dark:border-gray-700"
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={tab.id + results.filename}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{tab.name}</h3>
+                      <div className="flex space-x-2">
+                        <motion.button
+                          onClick={() => copyToClipboard(tab.content, tab.id)}
+                          disabled={!tab.content}
+                          className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          {copiedTab === tab.id ? <CheckCircleIcon className="w-5 h-5 text-green-500" /> : <ClipboardIcon className="w-5 h-5" />}
+                        </motion.button>
+                        <motion.button
+                          onClick={() => downloadAsFile(tab.content, results.filename, tab.id)}
+                          disabled={!tab.content}
+                          className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <DocumentArrowDownIcon className="w-5 h-5" />
+                        </motion.button>
+                      </div>
+                    </div>
+                    {tab.content ? (
+                      <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg font-mono max-h-[500px] custom-scrollbar">
+                        {tab.content}
+                      </pre>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <p>No content available for this view.</p>
+                        <p className="text-xs mt-1">{tab.description}</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </Tab.Panel>
+            ))}
+          </Tab.Panels>
+        </Tab.Group>
       </div>
     </motion.div>
-  )
-}
+  );
+};
 
-export default ResultsDisplay 
+export default ResultsDisplay; 

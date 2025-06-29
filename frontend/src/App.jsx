@@ -132,7 +132,9 @@ function App() {
     bulletPoints: '',
     comparison: null,
     filename: '',
-    allProcessedFiles: []
+    allProcessedFiles: [],
+    detectedLanguage: null,
+    ocrWarning: null,
   })
   
   // Authentication state
@@ -259,7 +261,9 @@ function App() {
       bulletPoints: '',
       comparison: null,
       filename: '',
-      allProcessedFiles: []
+      allProcessedFiles: [],
+      detectedLanguage: null,
+      ocrWarning: null,
     })
     setError('')
     
@@ -344,7 +348,15 @@ function App() {
         ...prev,
         ocrText: processedResults[0].text, // Keep first result as main OCR text for other operations
         filename: processedResults[0].filename,
-        allProcessedFiles: processedResults
+        allProcessedFiles: processedResults,
+        detectedLanguage: processedResults[0].detected_lang_name,
+        ocrWarning: processedResults[0].warning,
+        // Clear subsequent results
+        translatedText: "",
+        cleanedText: "",
+        summary: "",
+        bulletPoints: "",
+        comparison: null,
       }))
 
       // If we have exactly two files, automatically trigger comparison

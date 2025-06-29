@@ -1,12 +1,28 @@
 #!/bin/bash
 
-echo "Starting OCR Legal Document Processor..."
+echo "========================================"
+echo "  OCR Legal Document Processor"
+echo "========================================"
 echo
 
 # Check if .env file exists
 if [ ! -f .env ]; then
     echo "Error: .env file not found!"
-    echo "Please copy env.example to .env and add your Gemini API key."
+    echo "Please run: python setup.py"
+    exit 1
+fi
+
+# Check if backend virtual environment exists
+if [ ! -d backend/venv ]; then
+    echo "Error: Backend virtual environment not found!"
+    echo "Please run: python setup.py"
+    exit 1
+fi
+
+# Check if frontend node_modules exists
+if [ ! -d frontend/node_modules ]; then
+    echo "Error: Frontend dependencies not installed!"
+    echo "Please run: python setup.py"
     exit 1
 fi
 
@@ -24,13 +40,14 @@ trap cleanup EXIT INT TERM
 # Start backend
 echo "Starting Flask backend..."
 cd backend
-source venv/bin/activate 2>/dev/null || echo "Virtual environment not found, using system Python"
+source venv/bin/activate
 python app.py &
 BACKEND_PID=$!
 cd ..
 
 # Wait for backend to start
-sleep 3
+echo "Waiting for backend to initialize..."
+sleep 5
 
 # Start frontend
 echo "Starting React frontend..."
@@ -40,11 +57,13 @@ FRONTEND_PID=$!
 cd ..
 
 echo
+echo "========================================"
 echo "Both servers are running:"
 echo "Frontend: http://localhost:3000"
-echo "Backend: http://localhost:5000"
+echo "Backend:  http://localhost:5000"
+echo "========================================"
 echo
 echo "Press Ctrl+C to stop both servers..."
 
 # Wait for processes
-wait 
+wait

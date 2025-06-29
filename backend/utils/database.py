@@ -20,14 +20,17 @@ class DatabaseManager:
         self.connect()
         
     def connect(self):
-        """Connect to MongoDB"""
+        """Connect to MongoDB and handle connection failures gracefully"""
         try:
             # Get MongoDB URI from environment variable or use default
             mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
-            self.client = MongoClient(mongo_uri)
+            # Use a shorter timeout to fail faster if the server is not available
+            self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            # The ismaster command is cheap and does not require auth. It will raise a ConnectionFailure if the server is not available.
+            self.client.admin.command('ismaster')
             self.db = self.client.ocr_legal_processor
             
-            # Create indexes for better performance
+            # Create indexes for better performance only if connected
             self.db.users.create_index("email", unique=True)
             self.db.users.create_index("username", unique=True)
             self.db.documents.create_index("user_id")
@@ -35,19 +38,21 @@ class DatabaseManager:
             
             print("✅ Connected to MongoDB:", self.db.name)
             
-        except Exception as e:
-            print("❌ Failed to connect to MongoDB:", str(e))
+        except ConnectionFailure as e:
+            print("⚠️  Warning: Failed to connect to MongoDB.")
+            print("   Authentication and user document features will be disabled.")
+            print(f"   Reason: {e}")
             self.client = None
             self.db = None
     
     def get_db(self):
-        """Get database instance"""
-        if self.client is None:
-            self.connect()
+        """Get database instance without trying to reconnect."""
         return self.db
     
     def create_user(self, username: str, email: str, password: str, full_name: str = "") -> Dict[str, Any]:
         """Create a new user account"""
+        if not self.db:
+            return {"success": False, "error": "Database is not connected. User registration is disabled."}
         
         # Validate email format
         email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -107,6 +112,8 @@ class DatabaseManager:
     
     def authenticate_user(self, email_or_username: str, password: str) -> Dict[str, Any]:
         """Authenticate user login"""
+        if not self.db:
+            return {"success": False, "error": "Database is not connected. User login is disabled."}
         
         # Find user by email or username
         query = {
@@ -140,6 +147,8 @@ class DatabaseManager:
     
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get user by ID"""
+        if not self.db:
+            return None
         try:
             user = self.db.users.find_one({"_id": ObjectId(user_id), "is_active": True})
             return self._serialize_user(user) if user else None
@@ -149,6 +158,8 @@ class DatabaseManager:
     
     def update_user_profile(self, user_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         """Update user profile"""
+        if not self.db:
+            return {"success": False, "error": "Database is not connected. Profile updates are disabled."}
         try:
             # Filter allowed updates
             allowed_fields = ['full_name', 'profile.preferences', 'profile.stats']
@@ -180,6 +191,8 @@ class DatabaseManager:
     
     def save_document(self, user_id: str, document_data: Dict[str, Any]) -> Dict[str, Any]:
         """Save processed document for user"""
+        if not self.db:
+            return {"success": False, "error": "Database is not connected. Saving documents is disabled."}
         try:
             doc = {
                 "user_id": ObjectId(user_id),
@@ -216,6 +229,8 @@ class DatabaseManager:
     
     def get_user_documents(self, user_id: str, limit: int = 20, offset: int = 0) -> Dict[str, Any]:
         """Get user's processed documents"""
+        if not self.db:
+            return {"success": False, "error": "Database is not connected. Cannot retrieve documents."}
         try:
             documents = list(
                 self.db.documents.find({"user_id": ObjectId(user_id)})

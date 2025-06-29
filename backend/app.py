@@ -211,23 +211,19 @@ def process_document():
             # Handle different file types
             file_extension = os.path.splitext(filename)[1].lower()
             
-            if file_extension in ['.doc', '.docx']:
-                extracted_text = extract_text_from_word(temp_path)
-            elif file_extension == '.txt':
-                with open(temp_path, 'r', encoding='utf-8') as f:
-                    extracted_text = f.read()
-            else:
-                # Handle images and PDFs with OCR
-                extracted_text = process_ocr(temp_path, filename)
-            
-            if extracted_text.startswith("Error:"):
-                return jsonify({"success": False, "error": extracted_text}), 500
+            ocr_result = process_ocr(temp_path, filename)
+
+            if ocr_result['text'].startswith("Error:"):
+                return jsonify({"success": False, "error": ocr_result['text']}), 500
             
             return jsonify({
                 'success': True,
-                'extracted_text': extracted_text,
-                'raw_text': extracted_text,
-                'filename': filename
+                'extracted_text': ocr_result['text'],
+                'raw_text': ocr_result['text'],
+                'filename': filename,
+                'detected_lang_name': ocr_result.get('detected_lang_name'),
+                'detected_lang_code': ocr_result.get('detected_lang_code'),
+                'warning': ocr_result.get('warning')
             })
             
         finally:
@@ -446,12 +442,26 @@ def compare_documents_with_libraries(text1, text2):
 @app.route('/auth/register', methods=['POST'])
 def register():
     """Register a new user"""
+    if not db:
+        return jsonify({'success': False, 'error': 'Database not connected'}), 500
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided', 'success': False}), 400
             
-        result = auth_manager.register_user(data)
+        result = db_manager.create_user(
+            username=data.get('username'),
+            email=data.get('email'),
+            password=data.get('password'),
+            full_name=data.get('full_name', '')
+        )
+
+        if result['success']:
+            # Generate tokens for the new user
+            user_id = str(result['user']['id'])
+            tokens = auth_manager.generate_tokens(user_id)
+            result['tokens'] = tokens
+        
         return jsonify(result)
         
     except Exception as e:
@@ -461,12 +471,24 @@ def register():
 @app.route('/auth/login', methods=['POST'])
 def login():
     """Login a user"""
+    if not db:
+        return jsonify({'success': False, 'error': 'Database not connected'}), 500
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided', 'success': False}), 400
             
-        result = auth_manager.login_user(data)
+        result = db_manager.authenticate_user(
+            email_or_username=data.get('email_or_username'),
+            password=data.get('password')
+        )
+
+        if result['success']:
+            # Generate tokens for the logged-in user
+            user_id = str(result['user']['id'])
+            tokens = auth_manager.generate_tokens(user_id)
+            result['tokens'] = tokens
+        
         return jsonify(result)
         
     except Exception as e:

@@ -13,6 +13,8 @@ import spacy
 from spacy.language import Language
 from spacy.tokens import Doc
 from translate import Translator
+from langdetect import detect, LangDetectException
+import pycountry
 
 # Import for Word document processing
 try:
@@ -102,6 +104,76 @@ except OSError:
     print("Downloading spaCy model...")
     subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])
     nlp = spacy.load('en_core_web_sm')
+
+def get_tesseract_lang_code(iso_code):
+    """Convert ISO 639-1 (2-letter) to ISO 639-2 (3-letter) for Tesseract."""
+    try:
+        lang = pycountry.languages.get(alpha_2=iso_code)
+        return lang.alpha_3
+    except (AttributeError, KeyError):
+        # Fallback for common languages not in pycountry's main list
+        # or for special cases.
+        mapping = {
+            'zh-cn': 'chi_sim',
+            'zh-tw': 'chi_tra',
+            'he': 'heb',
+            'ja': 'jpn',
+            'ko': 'kor',
+            'en': 'eng'
+        }
+        return mapping.get(iso_code, 'eng') # Default to English
+
+def perform_ocr_with_lang_detect(image_path_or_obj):
+    """
+    Performs OCR on an image, automatically detecting the language.
+    Returns a dictionary with text, language, and any warnings.
+    """
+    result = {
+        'text': '',
+        'detected_lang_name': 'English',
+        'detected_lang_code': 'eng',
+        'warning': None
+    }
+    
+    try:
+        # 1. Initial OCR pass with default settings (English) to get some text
+        initial_text = pytesseract.image_to_string(image_path_or_obj, lang='eng')
+        
+        if not initial_text.strip():
+            result['warning'] = "No text detected in the document."
+            return result
+
+        # 2. Detect language from the initial text
+        try:
+            # Use a sample of the text for detection to improve speed and accuracy
+            sample_text = initial_text[:2000]
+            iso_code = detect(sample_text)
+            tess_code = get_tesseract_lang_code(iso_code)
+            
+            lang_name = pycountry.languages.get(alpha_2=iso_code).name
+            result['detected_lang_name'] = lang_name
+            result['detected_lang_code'] = tess_code
+            
+            # 3. If language is not English, re-run OCR with the detected language
+            if tess_code != 'eng':
+                print(f"Language detected: {lang_name} ({tess_code}). Re-running OCR...")
+                final_text = pytesseract.image_to_string(image_path_or_obj, lang=tess_code)
+                result['text'] = final_text
+            else:
+                result['text'] = initial_text
+        
+        except LangDetectException:
+            result['text'] = initial_text
+            result['warning'] = "Language could not be reliably detected. Defaulting to English."
+        except Exception as lang_e:
+            result['text'] = initial_text
+            result['warning'] = f"An error occurred during language detection: {lang_e}. Defaulting to English."
+
+    except Exception as ocr_e:
+        result['text'] = f"Error during OCR processing: {ocr_e}"
+        result['warning'] = "OCR failed."
+
+    return result
 
 def install_poppler_guide():
     """Return installation guide for Poppler on Windows"""
@@ -455,135 +527,111 @@ def process_pdf_fallback(filepath):
         return f"Error processing PDF: {e}"
 
 def process_ocr(filepath, filename):
-    """Process OCR for various document types"""
+    """Process OCR for various document types, now with language detection."""
     file_extension = os.path.splitext(filename)[1].lower()
-    extracted_text = ""
+    
+    # This dictionary will hold our final results
+    ocr_result = {
+        'text': '',
+        'detected_lang_name': 'N/A',
+        'detected_lang_code': 'N/A',
+        'warning': None
+    }
+
+    # Helper to update results
+    def update_result(data, is_ocr=False):
+        if is_ocr:
+            ocr_result.update(data)
+        else:
+            ocr_result['text'] = data
 
     # PDF Files
     if file_extension == '.pdf':
         if not PDF_SUPPORT:
-            extracted_text = "Error: pdf2image not installed. Please install: pip install pdf2image"
+            update_result("Error: pdf2image not installed. Please install: pip install pdf2image")
         elif not check_poppler_installation():
             print("Poppler not found, trying fallback method...")
-            extracted_text = process_pdf_fallback(filepath)
-            if "Error:" in extracted_text:
-                extracted_text += f"\n\n{install_poppler_guide()}"
+            fallback_text = process_pdf_fallback(filepath)
+            if "Error:" in fallback_text:
+                fallback_text += f"\\n\\n{install_poppler_guide()}"
+            update_result(fallback_text)
         else:
             try:
-                # Convert PDF pages to images from the file path
                 images = convert_from_path(filepath, dpi=300)
+                all_texts = []
+                detected_langs = []
                 
-                extracted_texts = []
                 for i, image in enumerate(images):
-                    text = pytesseract.image_to_string(image)
-                    extracted_texts.append(f"--- Page {i+1} ---\n{text.strip()}")
+                    page_result = perform_ocr_with_lang_detect(image)
+                    all_texts.append(f"--- Page {i+1} ---\\n{page_result['text'].strip()}")
+                    if page_result['detected_lang_code'] not in detected_langs:
+                        detected_langs.append(page_result['detected_lang_code'])
                 
-                extracted_text = "\n\n".join(extracted_texts)
+                # Consolidate results
+                update_result({
+                    'text': "\\n\\n".join(all_texts),
+                    'detected_lang_name': ', '.join(lang.capitalize() for lang in detected_langs),
+                    'detected_lang_code': ','.join(detected_langs)
+                }, is_ocr=True)
 
             except Exception as e:
                 print(f"Error processing PDF with Tesseract/Poppler: {e}")
-                # Try fallback method
-                extracted_text = process_pdf_fallback(filepath)
-                if "Error:" in extracted_text:
-                    extracted_text = f"Error: Failed to extract text from PDF. {e}\n\n{install_poppler_guide()}"
-
-    # Microsoft Word Documents
-    elif file_extension in ['.docx']:
-        if not WORD_SUPPORT:
-            extracted_text = "Error: Word document support not installed. Please install: pip install python-docx docx2txt"
-        else:
-            extracted_text = extract_text_from_docx(filepath)
-
-    elif file_extension in ['.doc']:
-        extracted_text = extract_text_from_doc(filepath)
-
-    # Microsoft Excel Files
-    elif file_extension in ['.xlsx', '.xls']:
-        extracted_text = extract_text_from_excel(filepath)
-
-    # Microsoft PowerPoint Files
-    elif file_extension in ['.pptx']:
-        extracted_text = extract_text_from_powerpoint(filepath)
-    
-    elif file_extension in ['.ppt']:
-        # For older PPT format, try textract first
-        extracted_text = extract_text_with_textract(filepath)
-        if "Error:" in extracted_text:
-            extracted_text = "Error: PPT format requires textract. Please install: pip install textract"
-
-    # OpenDocument Formats
-    elif file_extension in ['.odt', '.ods', '.odp']:
-        extracted_text = extract_text_from_opendocument(filepath)
-
-    # Text Files
-    elif file_extension in ['.txt', '.text']:
-        extracted_text = extract_text_from_txt(filepath)
-
-    # CSV Files
-    elif file_extension in ['.csv']:
-        extracted_text = extract_text_from_csv(filepath)
-
-    # HTML/XML Files
-    elif file_extension in ['.html', '.htm', '.xml']:
-        extracted_text = extract_text_from_html(filepath)
-
-    # RTF Files
-    elif file_extension in ['.rtf']:
-        try:
-            import striprtf
-            with open(filepath, 'r', encoding='utf-8') as file:
-                rtf_content = file.read()
-                extracted_text = striprtf.striprtf(rtf_content)
-        except ImportError:
-            extracted_text = "Error: RTF support not installed. Please install: pip install striprtf"
-        except Exception as e:
-            extracted_text = f"Error processing RTF file: {e}"
+                update_result(f"Error: Failed to extract text from PDF. {e}\\n\\n{install_poppler_guide()}")
 
     # Image Files (OCR Processing)
     elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.tif']:
         try:
-            # Try EasyOCR first for better results
-            if EASYOCR_SUPPORT:
-                easyocr_text = extract_text_with_easyocr(filepath)
-                if easyocr_text:
-                    extracted_text = easyocr_text
-                else:
-                    # Fallback to Tesseract
-                    image = Image.open(filepath)
-                    extracted_text = pytesseract.image_to_string(image)
-            else:
-                # Use Tesseract
-                image = Image.open(filepath)
-                extracted_text = pytesseract.image_to_string(image)
-            
-            if not extracted_text.strip():
-                extracted_text = "Warning: No text detected in image. The image may not contain readable text."
-
+            update_result(perform_ocr_with_lang_detect(filepath), is_ocr=True)
+            if not ocr_result['text'].strip() and not ocr_result['warning']:
+                ocr_result['warning'] = "No text detected in image. The image may not contain readable text."
         except Exception as e:
             print(f"Error processing image with OCR: {e}")
-            extracted_text = f"Error: Failed to extract text from image. {e}"
+            update_result(f"Error: Failed to extract text from image. {e}")
 
-    # Generic fallback for other formats
-    else:
-        # Try textract as a last resort for unknown formats
-        if ADVANCED_TEXT_SUPPORT:
-            extracted_text = extract_text_with_textract(filepath)
-            if "Error:" in extracted_text:
-                supported_formats = [
-                    '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
-                    '.odt', '.ods', '.odp', '.txt', '.csv', '.html', '.htm', '.xml',
-                    '.rtf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'
-                ]
-                extracted_text = f"Error: Unsupported file type '{file_extension}'. Supported formats: {', '.join(supported_formats)}"
+    # Microsoft Word Documents
+    elif file_extension in ['.docx']:
+        if not WORD_SUPPORT:
+            update_result("Error: Word document support not installed. Please install: pip install python-docx docx2txt")
         else:
-            supported_formats = [
-                '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
-                '.odt', '.ods', '.odp', '.txt', '.csv', '.html', '.htm', '.xml',
-                '.rtf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'
-            ]
-            extracted_text = f"Error: Unsupported file type '{file_extension}'. Supported formats: {', '.join(supported_formats)}"
+            update_result(extract_text_from_docx(filepath))
+
+    elif file_extension in ['.doc']:
+        update_result(extract_text_from_doc(filepath))
+
+    # Other file types that don't need image-based OCR
+    else:
+        text_content = ""
+        if file_extension in ['.xlsx', '.xls']:
+            text_content = extract_text_from_excel(filepath)
+        elif file_extension in ['.pptx', '.ppt']:
+            text_content = extract_text_from_powerpoint(filepath)
+        elif file_extension in ['.odt', '.ods', '.odp']:
+            text_content = extract_text_from_opendocument(filepath)
+        elif file_extension in ['.txt', '.text']:
+            text_content = extract_text_from_txt(filepath)
+        elif file_extension in ['.csv']:
+            text_content = extract_text_from_csv(filepath)
+        elif file_extension in ['.html', '.htm', '.xml']:
+            text_content = extract_text_from_html(filepath)
+        elif file_extension in ['.rtf']:
+            try:
+                import striprtf
+                with open(filepath, 'r', encoding='utf-8') as file:
+                    rtf_content = file.read()
+                    text_content = striprtf.striprtf(rtf_content)
+            except ImportError:
+                text_content = "Error: RTF support not installed. Please install: pip install striprtf"
+            except Exception as e:
+                text_content = f"Error processing RTF file: {e}"
+        else:
+             text_content = f"Error: Unsupported file type '{file_extension}'."
+        
+        update_result(text_content)
     
-    return extracted_text if extracted_text else "No text could be extracted from this document."
+    if not ocr_result['text'] and not ocr_result['warning']:
+         ocr_result['text'] = "No text could be extracted from this document."
+
+    return ocr_result
 
 def clean_text(text: str) -> str:
     """Clean and format extracted text"""
