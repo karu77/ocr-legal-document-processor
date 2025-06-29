@@ -1,0 +1,4 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: email-validator in c:\users\lokesh\appdata\roaming\python\python313\site-packages (2.2.0)
+Requirement already satisfied: dnspython>=2.0.0 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from email-validator) (2.7.0)
+Requirement already satisfied: idna>=2.0.0 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from email-validator) (2.10)

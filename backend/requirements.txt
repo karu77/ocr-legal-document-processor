@@ -24,7 +24,30 @@ email-validator>=2.0.0
 python-docx>=0.8.11
 docx2txt>=0.8
 PyPDF2>=3.0.0
-striprtf==0.0.29
+striprtf>=0.0.26
+
+# Excel and Spreadsheet Support
+openpyxl>=3.1.0
+xlrd>=2.0.1
+pandas>=2.0.0
+
+# PowerPoint Support
+python-pptx>=0.6.21
+
+# OpenDocument Support
+odfpy>=1.4.1
+
+# HTML/XML Processing
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Text Processing
+chardet>=5.0.0
+textract>=1.6.5
+
+# CSV Support is built into Python
+# Additional format support
+easyocr>=1.7.0  # Alternative OCR engine
 
 # Translation
 translate>=3.6.1
