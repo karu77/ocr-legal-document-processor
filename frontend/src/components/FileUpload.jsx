@@ -13,9 +13,22 @@ const FileUpload = ({ onFilesSelected }) => {
       return
     }
 
+    // Limit to 2 files maximum
+    if (acceptedFiles.length > 2) {
+      toast.error('Please select a maximum of 2 files for comparison')
+      return
+    }
+
+    // Update selected files
     setSelectedFiles(acceptedFiles)
     onFilesSelected(acceptedFiles)
-    toast.success(`${acceptedFiles.length} file${acceptedFiles.length > 1 ? 's' : ''} selected!`)
+    
+    // Show appropriate success message
+    if (acceptedFiles.length === 2) {
+      toast.success('2 files selected for comparison!')
+    } else {
+      toast.success(`${acceptedFiles.length} file selected!`)
+    }
   }, [onFilesSelected])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -25,7 +38,7 @@ const FileUpload = ({ onFilesSelected }) => {
       'application/pdf': ['.pdf']
     },
     multiple: true,
-    maxFiles: 5,
+    maxFiles: 2,
     maxSize: 16 * 1024 * 1024 // 16MB
   })
 
@@ -60,7 +73,11 @@ const FileUpload = ({ onFilesSelected }) => {
             {isDragActive ? (
               "Drop your documents here..."
             ) : (
-              "Upload your documents"
+              selectedFiles.length === 0 
+                ? "Upload your documents (max 2 files)"
+                : selectedFiles.length === 1
+                  ? "Add one more document for comparison"
+                  : "Documents ready for comparison"
             )}
           </div>
           

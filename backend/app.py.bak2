@@ -72,64 +72,85 @@ def extract_text_from_word(filepath):
         return f"Error extracting text from Word document: {e}"
 
 def translate_with_libraries(text, target_language):
-    """Translate text using a simple translation API"""
+    """Translate text using MyMemory Translation API"""
     try:
         import requests
-        import urllib.parse
-        from time import sleep
         
         # Map common language names to codes
         language_codes = {
             'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it',
             'Portuguese': 'pt', 'Russian': 'ru', 'Chinese': 'zh', 'Japanese': 'ja',
-            'Korean': 'ko', 'Arabic': 'ar', 'Hindi': 'hi'
+            'Korean': 'ko', 'Arabic': 'ar', 'Hindi': 'hi', 'Thai': 'th',
+            'Vietnamese': 'vi', 'Indonesian': 'id', 'Malay': 'ms', 'Filipino': 'tl',
+            'Dutch': 'nl', 'Swedish': 'sv', 'Norwegian': 'no', 'Danish': 'da',
+            'Finnish': 'fi', 'Polish': 'pl', 'Czech': 'cs', 'Slovak': 'sk',
+            'Hungarian': 'hu', 'Romanian': 'ro', 'Bulgarian': 'bg', 'Croatian': 'hr',
+            'Serbian': 'sr', 'Slovenian': 'sl', 'Estonian': 'et', 'Latvian': 'lv',
+            'Lithuanian': 'lt', 'Turkish': 'tr', 'Hebrew': 'he', 'Persian': 'fa',
+            'Urdu': 'ur', 'Bengali': 'bn', 'Tamil': 'ta', 'Telugu': 'te',
+            'Marathi': 'mr', 'Gujarati': 'gu', 'Kannada': 'kn', 'Malayalam': 'ml',
+            'Punjabi': 'pa', 'Nepali': 'ne', 'Sinhala': 'si', 'Myanmar': 'my',
+            'Khmer': 'km', 'Lao': 'lo'
         }
         
         target_code = language_codes.get(target_language, target_language.lower()[:2])
         app.logger.info(f"Using language code: {target_code}")
         
-        # Split text into smaller chunks (max 500 chars)
-        chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+        # Split text into smaller chunks (max 500 chars per request)
+        chunks = []
+        current_chunk = []
+        current_length = 0
+        
+        # Split by sentences first
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        
+        for sentence in sentences:
+            if current_length + len(sentence) > 500:
+                # Save current chunk and start new one
+                if current_chunk:
+                    chunks.append(' '.join(current_chunk))
+                current_chunk = [sentence]
+                current_length = len(sentence)
+            else:
+                current_chunk.append(sentence)
+                current_length += len(sentence)
+        
+        # Add final chunk if any
+        if current_chunk:
+            chunks.append(' '.join(current_chunk))
+        
         translated_chunks = []
         
         # Translate each chunk
         for chunk in chunks:
             if not chunk.strip():
+                translated_chunks.append('')
                 continue
-                
+            
             try:
-                # URL encode the text
-                encoded_text = urllib.parse.quote(chunk)
-                
-                # Make the request to the translation API
-                url = f"https://api.mymemory.translated.net/get?q={encoded_text}&langpair=en|{target_code}"
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                # Call MyMemory Translation API
+                url = 'https://api.mymemory.translated.net/get'
+                params = {
+                    'q': chunk,
+                    'langpair': f'en|{target_code}'
                 }
                 
-                response = requests.get(url, headers=headers)
+                response = requests.get(url, params=params)
                 data = response.json()
                 
                 if response.status_code == 200 and data['responseStatus'] == 200:
                     translated_text = data['responseData']['translatedText']
                     translated_chunks.append(translated_text)
                 else:
-                    # If translation fails, try an alternative API
-                    alt_url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl={target_code}&dt=t&q={encoded_text}"
-                    alt_response = requests.get(alt_url, headers=headers)
-                    
-                    if alt_response.status_code == 200:
-                        alt_data = alt_response.json()
-                        translated_text = ''.join([item[0] for item in alt_data[0] if item[0]])
-                        translated_chunks.append(translated_text)
-                    else:
-                        translated_chunks.append(chunk)
+                    app.logger.warning(f"Translation failed for chunk: {data.get('responseStatus')}")
+                    translated_chunks.append(chunk)
                 
-                # Add delay between requests
-                sleep(1)
+                # Add delay to respect rate limits
+                time.sleep(0.1)
                 
             except Exception as e:
-                app.logger.error(f"Chunk translation failed: {str(e)}")
+                app.logger.warning(f"Chunk translation failed: {str(e)}")
                 translated_chunks.append(chunk)
         
         # Join all translated chunks
@@ -142,7 +163,7 @@ def translate_with_libraries(text, target_language):
             
     except Exception as e:
         app.logger.error(f"Translation failed: {str(e)}")
-        return f"[Translation failed - {str(e)}]\n\n{text}"
+        return create_basic_translation_notice(text, target_language)
 
 def create_basic_translation_notice(text, target_language):
     """Create a notice when translation services are not available"""
@@ -269,12 +290,12 @@ def translate_document():
         
     except Exception as e:
         app.logger.error(f"Translation error: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': f"Translation failed: {str(e)}"
         }), 500
 
-@app.route('/cleanup', methods=['POST'])
 @optional_auth
 def cleanup_text_endpoint():
     """Clean up OCR text using library-based cleaning"""
@@ -355,7 +376,7 @@ def bullet_points_endpoint():
 @app.route('/compare', methods=['POST'])
 @app.route('/api/compare', methods=['POST'])
 @optional_auth
-def compare_documents_endpoint():
+def compare_documents():
     """Compare two documents using library-based comparison"""
     try:
         data = request.get_json()
@@ -384,9 +405,10 @@ def compare_documents_endpoint():
         
     except Exception as e:
         app.logger.error(f"Comparison error: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
-            'error': f"Comparison failed: {str(e)}"
+            'error': f"Document comparison failed: {str(e)}"
         }), 500
 
 def compare_documents_with_libraries(text1, text2):

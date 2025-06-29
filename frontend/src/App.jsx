@@ -131,7 +131,8 @@ function App() {
     summary: '',
     bulletPoints: '',
     comparison: null,
-    filename: ''
+    filename: '',
+    allProcessedFiles: []
   })
   
   // Authentication state
@@ -245,7 +246,10 @@ function App() {
 
   // Handle file upload
   const handleFileSelect = useCallback((selectedFiles) => {
-    setFiles(selectedFiles)
+    // Limit to 2 files for comparison
+    const filesToStore = selectedFiles.slice(0, 2)
+    setFiles(filesToStore)
+    
     // Reset all results when new files are selected
     setResults({
       ocrText: '',
@@ -254,10 +258,22 @@ function App() {
       summary: '',
       bulletPoints: '',
       comparison: null,
-      filename: ''
+      filename: '',
+      allProcessedFiles: []
     })
     setError('')
-    toast.success('File selected. Previous results cleared.')
+    
+    // Show appropriate toast message
+    if (filesToStore.length === 2) {
+      toast.success('Two files selected for comparison. Previous results cleared.')
+    } else {
+      toast.success('File selected. Previous results cleared.')
+    }
+    
+    // Automatically trigger OCR for both files if 2 files are selected
+    if (filesToStore.length === 2) {
+      handleOCR()
+    }
   }, [])
 
   // Handle language selection
@@ -300,35 +316,99 @@ function App() {
       return
     }
 
-    const file = files[0]
-    console.log('File selected:', file.name, file.type, file.size, 'bytes')
+    setLoading(true)
+    setCurrentOperation('OCR Processing')
+    setError('')
 
-    // Read file content using FileReader
-    const reader = new FileReader()
-    reader.readAsArrayBuffer(file)
+    try {
+      // Process all files
+      const processedResults = await Promise.all(
+        files.map(async (file) => {
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          const response = await axios.post('/ocr', formData)
+          if (!response.data.success) {
+            throw new Error(response.data.error || 'OCR processing failed')
+          }
+          
+          return {
+            filename: file.name,
+            text: response.data.extracted_text
+          }
+        })
+      )
 
-    reader.onload = async () => {
-      const arrayBuffer = reader.result
-      const blob = new Blob([arrayBuffer], { type: file.type })
-      console.log('FileReader loaded. ArrayBuffer size:', arrayBuffer.byteLength, 'bytes', 'Blob size:', blob.size, 'bytes')
+      // Update results with all processed files
+      setResults(prev => ({
+        ...prev,
+        ocrText: processedResults[0].text, // Keep first result as main OCR text for other operations
+        filename: processedResults[0].filename,
+        allProcessedFiles: processedResults
+      }))
 
-      const formData = new FormData()
-      formData.append('file', blob, file.name)
-      console.log('FormData prepared. Appending file:', file.name, 'with Blob type:', blob.type)
-      // You cannot directly inspect FormData content easily in console, but this confirms append was called.
+      // If we have exactly two files, automatically trigger comparison
+      if (processedResults.length === 2) {
+        await handleCompare(processedResults[0], processedResults[1])
+      }
 
-      await makeApiCall('/ocr', formData, (data) => {
-        setResults(prev => ({
-          ...prev,
-          ocrText: data.extracted_text,
-          filename: data.filename
-        }))
-      }, 'OCR Processing')
+      toast.success(`OCR Processing completed for ${processedResults.length} file(s)!`)
+    } catch (error) {
+      console.error('OCR error:', error)
+      const errorMsg = error.response?.data?.error || error.message || 'OCR Processing failed'
+      setError(errorMsg)
+      toast.error(errorMsg)
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
+    }
+  }
+
+  const handleCompare = async (file1, file2) => {
+    // If no files provided, try to use the processed files
+    if (!file1 || !file2) {
+      if (!results.allProcessedFiles || results.allProcessedFiles.length < 2) {
+        toast.error('Please process both files with OCR first')
+        return
+      }
+      [file1, file2] = results.allProcessedFiles
     }
 
-    reader.onerror = (error) => {
-      toast.error('Failed to read file: ' + error.target.error)
-      console.error('FileReader error:', error)
+    setLoading(true)
+    setCurrentOperation('Comparing Documents')
+    setError('')
+
+    try {
+      const response = await axios.post('/compare', {
+        text1: file1.text,
+        text2: file2.text,
+        file1Name: file1.filename,
+        file2Name: file2.filename
+      })
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Document comparison failed')
+      }
+
+      setResults(prev => ({
+        ...prev,
+        comparison: {
+          ...response.data,
+          file1Name: file1.filename,
+          file2Name: file2.filename,
+          text1: file1.text,
+          text2: file2.text
+        }
+      }))
+      toast.success('Documents compared successfully')
+    } catch (error) {
+      console.error('Comparison error:', error)
+      const errorMsg = error.response?.data?.error || error.message || 'Document comparison failed'
+      setError(errorMsg)
+      toast.error(errorMsg)
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
     }
   }
 
@@ -474,51 +554,6 @@ function App() {
       console.error('Key points error:', error)
       setError(`Key points generation failed: ${error.message}`)
       toast.error('Failed to generate key points')
-    } finally {
-      setLoading(false)
-      setCurrentOperation('')
-    }
-  }
-
-  const handleCompare = async () => {
-    if (files.length < 2) {
-      toast.error('Please upload at least 2 files to compare')
-      return
-    }
-
-    setLoading(true)
-    setCurrentOperation('Comparing Documents')
-    setError('')
-
-    try {
-      // First, extract text from both files
-      const extractedTexts = await Promise.all(
-        files.slice(0, 2).map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          const response = await axios.post('/ocr', formData)
-          return response.data.extracted_text
-        })
-      )
-
-      // Then compare the extracted texts
-      const response = await axios.post('/compare', {
-        text1: extractedTexts[0],
-        text2: extractedTexts[1]
-      })
-
-      if (response.data.success) {
-        setResults(prev => ({
-          ...prev,
-          comparison: response.data.comparison
-        }))
-      } else {
-        throw new Error(response.data.error || 'Failed to compare documents')
-      }
-    } catch (error) {
-      console.error('Error comparing documents:', error)
-      setError(`Failed to compare documents: ${error.message}`)
-      toast.error('Failed to compare documents')
     } finally {
       setLoading(false)
       setCurrentOperation('')
