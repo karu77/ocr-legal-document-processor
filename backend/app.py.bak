@@ -12,6 +12,7 @@ from utils.ocr_processor import (
     process_ocr, clean_text, summarize_text, 
     extract_key_points, translate_text, compare_documents
 )
+# from utils.gemini_client import GeminiClient  # Not used - using libraries instead
 from utils.database import db_manager
 from utils.auth import auth_manager, require_auth, optional_auth
 from bson import ObjectId
@@ -72,64 +73,85 @@ def extract_text_from_word(filepath):
         return f"Error extracting text from Word document: {e}"
 
 def translate_with_libraries(text, target_language):
-    """Translate text using a simple translation API"""
+    """Translate text using MyMemory Translation API"""
     try:
         import requests
-        import urllib.parse
-        from time import sleep
         
         # Map common language names to codes
         language_codes = {
             'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it',
             'Portuguese': 'pt', 'Russian': 'ru', 'Chinese': 'zh', 'Japanese': 'ja',
-            'Korean': 'ko', 'Arabic': 'ar', 'Hindi': 'hi'
+            'Korean': 'ko', 'Arabic': 'ar', 'Hindi': 'hi', 'Thai': 'th',
+            'Vietnamese': 'vi', 'Indonesian': 'id', 'Malay': 'ms', 'Filipino': 'tl',
+            'Dutch': 'nl', 'Swedish': 'sv', 'Norwegian': 'no', 'Danish': 'da',
+            'Finnish': 'fi', 'Polish': 'pl', 'Czech': 'cs', 'Slovak': 'sk',
+            'Hungarian': 'hu', 'Romanian': 'ro', 'Bulgarian': 'bg', 'Croatian': 'hr',
+            'Serbian': 'sr', 'Slovenian': 'sl', 'Estonian': 'et', 'Latvian': 'lv',
+            'Lithuanian': 'lt', 'Turkish': 'tr', 'Hebrew': 'he', 'Persian': 'fa',
+            'Urdu': 'ur', 'Bengali': 'bn', 'Tamil': 'ta', 'Telugu': 'te',
+            'Marathi': 'mr', 'Gujarati': 'gu', 'Kannada': 'kn', 'Malayalam': 'ml',
+            'Punjabi': 'pa', 'Nepali': 'ne', 'Sinhala': 'si', 'Myanmar': 'my',
+            'Khmer': 'km', 'Lao': 'lo'
         }
         
         target_code = language_codes.get(target_language, target_language.lower()[:2])
         app.logger.info(f"Using language code: {target_code}")
         
-        # Split text into smaller chunks (max 500 chars)
-        chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+        # Split text into smaller chunks (max 500 chars per request)
+        chunks = []
+        current_chunk = []
+        current_length = 0
+        
+        # Split by sentences first
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        
+        for sentence in sentences:
+            if current_length + len(sentence) > 500:
+                # Save current chunk and start new one
+                if current_chunk:
+                    chunks.append(' '.join(current_chunk))
+                current_chunk = [sentence]
+                current_length = len(sentence)
+            else:
+                current_chunk.append(sentence)
+                current_length += len(sentence)
+        
+        # Add final chunk if any
+        if current_chunk:
+            chunks.append(' '.join(current_chunk))
+        
         translated_chunks = []
         
         # Translate each chunk
         for chunk in chunks:
             if not chunk.strip():
+                translated_chunks.append('')
                 continue
-                
+            
             try:
-                # URL encode the text
-                encoded_text = urllib.parse.quote(chunk)
-                
-                # Make the request to the translation API
-                url = f"https://api.mymemory.translated.net/get?q={encoded_text}&langpair=en|{target_code}"
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                # Call MyMemory Translation API
+                url = 'https://api.mymemory.translated.net/get'
+                params = {
+                    'q': chunk,
+                    'langpair': f'en|{target_code}'
                 }
                 
-                response = requests.get(url, headers=headers)
+                response = requests.get(url, params=params)
                 data = response.json()
                 
                 if response.status_code == 200 and data['responseStatus'] == 200:
                     translated_text = data['responseData']['translatedText']
                     translated_chunks.append(translated_text)
                 else:
-                    # If translation fails, try an alternative API
-                    alt_url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl={target_code}&dt=t&q={encoded_text}"
-                    alt_response = requests.get(alt_url, headers=headers)
-                    
-                    if alt_response.status_code == 200:
-                        alt_data = alt_response.json()
-                        translated_text = ''.join([item[0] for item in alt_data[0] if item[0]])
-                        translated_chunks.append(translated_text)
-                    else:
-                        translated_chunks.append(chunk)
+                    app.logger.warning(f"Translation failed for chunk: {data.get('responseStatus')}")
+                    translated_chunks.append(chunk)
                 
-                # Add delay between requests
-                sleep(1)
+                # Add delay to respect rate limits
+                time.sleep(0.1)
                 
             except Exception as e:
-                app.logger.error(f"Chunk translation failed: {str(e)}")
+                app.logger.warning(f"Chunk translation failed: {str(e)}")
                 translated_chunks.append(chunk)
         
         # Join all translated chunks
@@ -142,7 +164,7 @@ def translate_with_libraries(text, target_language):
             
     except Exception as e:
         app.logger.error(f"Translation failed: {str(e)}")
-        return f"[Translation failed - {str(e)}]\n\n{text}"
+        return create_basic_translation_notice(text, target_language)
 
 def create_basic_translation_notice(text, target_language):
     """Create a notice when translation services are not available"""
@@ -176,7 +198,6 @@ def health_check():
 @app.route('/api/process', methods=['POST'])
 @optional_auth
 def process_document():
-    """Extract text from uploaded image or PDF using OCR"""
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided', 'success': False}), 400
@@ -269,6 +290,7 @@ def translate_document():
         
     except Exception as e:
         app.logger.error(f"Translation error: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': f"Translation failed: {str(e)}"
@@ -355,7 +377,7 @@ def bullet_points_endpoint():
 @app.route('/compare', methods=['POST'])
 @app.route('/api/compare', methods=['POST'])
 @optional_auth
-def compare_documents_endpoint():
+def compare_documents():
     """Compare two documents using library-based comparison"""
     try:
         data = request.get_json()
@@ -384,9 +406,10 @@ def compare_documents_endpoint():
         
     except Exception as e:
         app.logger.error(f"Comparison error: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
-            'error': f"Comparison failed: {str(e)}"
+            'error': f"Document comparison failed: {str(e)}"
         }), 500
 
 def compare_documents_with_libraries(text1, text2):
@@ -482,23 +505,21 @@ def get_profile():
     try:
         user_id = request.user_id
         user = db.users.find_one({'_id': ObjectId(user_id)})
-        
         if not user:
             return jsonify({'error': 'User not found', 'success': False}), 404
             
         # Remove sensitive data
         user.pop('password', None)
-        user.pop('refresh_tokens', None)
         user['_id'] = str(user['_id'])
         
         return jsonify({
             'success': True,
-            'user': user
+            'profile': user
         })
         
     except Exception as e:
         app.logger.error(f"Profile fetch error: {str(e)}")
-        return jsonify({'success': False, 'error': f'Failed to fetch profile: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': f'Could not fetch profile: {str(e)}'}), 500
 
 @app.errorhandler(413)
 def too_large(e):
@@ -514,141 +535,215 @@ def internal_server_error(e):
     app.logger.error(f"Internal server error: {str(e)}")
     return jsonify({
         'success': False,
-        'error': 'An internal server error occurred'
+        'error': 'Internal server error occurred'
     }), 500
 
 def clean_text_with_libraries(text):
-    """Clean text using basic text processing libraries"""
-    try:
-        import re
-        
-        # Basic text cleaning
-        cleaned = text.strip()
-        
-        # Remove multiple spaces
-        cleaned = re.sub(r'\s+', ' ', cleaned)
-        
-        # Fix common OCR errors
-        cleaned = re.sub(r'[|]', 'I', cleaned)  # Replace | with I
-        cleaned = re.sub(r'[}]', ')', cleaned)  # Replace } with )
-        cleaned = re.sub(r'[{]', '(', cleaned)  # Replace { with (
-        cleaned = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', cleaned)  # Add space between camelCase
-        
-        # Fix spacing around punctuation
-        cleaned = re.sub(r'\s*([.,!?:;])\s*', r'\1 ', cleaned)
-        cleaned = re.sub(r'\s+', ' ', cleaned)
-        
-        # Normalize quotes
-        cleaned = re.sub(r'["""]', '"', cleaned)
-        cleaned = re.sub(r"['']", "'", cleaned)
-        
-        # Fix common sentence spacing
-        cleaned = re.sub(r'(?<=[.!?])\s*(?=[A-Z])', '\n\n', cleaned)
-        
-        return cleaned.strip()
-        
-    except Exception as e:
-        app.logger.error(f"Text cleaning failed: {str(e)}")
-        return text
+    """Enhanced text cleaning using libraries"""
+    import re
+    
+    # Remove extra whitespace and normalize line breaks
+    cleaned_text = re.sub(r'\s+', ' ', text)
+    
+    # Fix common OCR errors
+    cleaned_text = re.sub(r'([a-z])([A-Z])', r'\1 \2', cleaned_text)  # Add space between camelCase
+    cleaned_text = re.sub(r'(\d)([A-Za-z])', r'\1 \2', cleaned_text)  # Add space between numbers and letters
+    cleaned_text = re.sub(r'([A-Za-z])(\d)', r'\1 \2', cleaned_text)  # Add space between letters and numbers
+    cleaned_text = re.sub(r'([.!?])([A-Z])', r'\1 \2', cleaned_text)  # Add space after punctuation
+    
+    # Fix line breaks for better readability
+    cleaned_text = re.sub(r'(\w)\n(\w)', r'\1 \2', cleaned_text)  # Join broken words
+    cleaned_text = re.sub(r'\n+', '\n\n', cleaned_text)  # Normalize paragraph breaks
+    
+    # Remove excessive punctuation
+    cleaned_text = re.sub(r'\.{3,}', '...', cleaned_text)
+    cleaned_text = re.sub(r'-{2,}', '--', cleaned_text)
+    
+    # Fix spacing issues
+    cleaned_text = re.sub(r'\s*,\s*', ', ', cleaned_text)  # Fix comma spacing
+    cleaned_text = re.sub(r'\s*:\s*', ': ', cleaned_text)  # Fix colon spacing
+    cleaned_text = re.sub(r'\s*;\s*', '; ', cleaned_text)  # Fix semicolon spacing
+    
+    # Trim and clean final result
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
 
 def summarize_with_libraries(text):
-    """Summarize text using basic NLP techniques"""
+    """Generate summary using text processing libraries"""
     try:
         import re
         from collections import Counter
-        from string import punctuation
         
-        # Tokenize into sentences
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        
-        if len(sentences) <= 3:
-            return text
-            
-        # Tokenize words and remove stopwords
-        stopwords = {'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he',
-                    'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'were',
-                    'will', 'with'}
-                    
-        words = []
-        for sentence in sentences:
-            words.extend([word.strip(punctuation).lower() 
-                        for word in sentence.split()
-                        if word.strip(punctuation).lower() not in stopwords])
-        
-        # Get word frequency
-        word_freq = Counter(words)
-        
-        # Score sentences based on word frequency
-        sentence_scores = []
-        for sentence in sentences:
-            score = sum(word_freq[word.strip(punctuation).lower()] 
-                       for word in sentence.split()
-                       if word.strip(punctuation).lower() in word_freq)
-            sentence_scores.append((score, sentence))
-        
-        # Get top sentences
-        sentence_scores.sort(reverse=True)
-        num_sentences = max(3, len(sentences) // 4)  # At least 3 sentences or 25% of original
-        summary_sentences = [sentence for _, sentence in sentence_scores[:num_sentences]]
-        
-        # Reorder sentences to maintain original flow
-        summary_sentences.sort(key=lambda x: sentences.index(x))
-        
-        return '\n\n'.join(summary_sentences)
-        
-    except Exception as e:
-        app.logger.error(f"Summarization failed: {str(e)}")
-        return text[:500] + '...'  # Return truncated text as fallback
-
-def extract_key_points_with_libraries(text):
-    """Extract key points using basic NLP techniques"""
-    try:
-        import re
-        from collections import Counter
-        from string import punctuation
+        # Clean and prepare text
+        clean_text = re.sub(r'\s+', ' ', text).strip()
         
         # Split into sentences
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r'(?<=[.!?])\s+', clean_text)
+        sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 15]
         
-        if not sentences:
-            return "No key points found."
+        if len(sentences) < 3:
+            return f"BRIEF SUMMARY:\n\n{clean_text[:500]}{'...' if len(clean_text) > 500 else ''}"
+        
+        # Score sentences based on word frequency and position
+        words = clean_text.lower().split()
+        word_freq = Counter(words)
+        
+        # Remove common stop words
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'}
+        
+        # Score each sentence
+        sentence_scores = []
+        for i, sentence in enumerate(sentences):
+            score = 0
+            sentence_words = sentence.lower().split()
             
-        # Simple scoring based on key phrases
-        key_phrases = ['important', 'key', 'main', 'significant', 'essential', 'critical',
-                      'must', 'should', 'need to', 'required', 'recommended', 'note that',
-                      'remember', 'consider', 'ensure', 'crucial', 'vital', 'fundamental']
-                      
-        scored_sentences = []
-        for sentence in sentences:
-            score = sum(1 for phrase in key_phrases if phrase in sentence.lower())
+            # Word frequency score
+            for word in sentence_words:
+                if word not in stop_words and len(word) > 2:
+                    score += word_freq.get(word, 0)
             
-            # Additional score for sentences with numbers, dates, or percentages
-            if re.search(r'\d+', sentence):
-                score += 1
-            if re.search(r'\d{1,2}/\d{1,2}/\d{2,4}', sentence):
-                score += 1
-            if re.search(r'\d+%', sentence):
-                score += 1
-                
-            scored_sentences.append((score, sentence))
+            # Position bonus (earlier sentences get higher score)
+            position_bonus = len(sentences) - i
+            score += position_bonus * 2
+            
+            # Length bonus (moderate length sentences)
+            if 50 <= len(sentence) <= 150:
+                score += 10
+            
+            sentence_scores.append((score, sentence, i))
         
-        # Sort by score and get top sentences
-        scored_sentences.sort(reverse=True)
-        top_sentences = [s for _, s in scored_sentences[:5]]  # Get top 5 sentences
+        # Sort by score and select top sentences
+        sentence_scores.sort(reverse=True)
+        top_sentences = sentence_scores[:min(4, len(sentence_scores))]
         
-        # Format as bullet points
-        bullet_points = []
-        for i, sentence in enumerate(top_sentences, 1):
-            # Clean up the sentence
-            point = sentence.strip()
-            if not point.endswith(('.', '!', '?')):
-                point += '.'
-            bullet_points.append(f"{i}. {point}")
+        # Sort selected sentences by original order
+        top_sentences.sort(key=lambda x: x[2])
         
-        return '\n\n'.join(bullet_points)
+        # Create structured summary
+        main_summary = '. '.join([s[1] for s in top_sentences])
+        
+        # Add statistics
+        word_count = len(words)
+        char_count = len(text)
+        
+        summary = f"""DOCUMENT SUMMARY
+
+{main_summary}
+
+DOCUMENT STATISTICS:
+• Total words: {word_count:,}
+• Total characters: {char_count:,}
+• Sentences analyzed: {len(sentences)}
+• Key sentences selected: {len(top_sentences)}
+• Compression ratio: {len(main_summary)/len(clean_text)*100:.1f}%"""
+        
+        return summary
         
     except Exception as e:
-        app.logger.error(f"Key points extraction failed: {str(e)}")
+        app.logger.error(f"Summary generation failed: {e}")
+        return f"SUMMARY:\n\n{text[:800]}{'...' if len(text) > 800 else ''}"
+
+def extract_key_points_with_libraries(text):
+    """Extract key points using NLP libraries"""
+    try:
+        import re
+        from collections import Counter
+        
+        # Clean text first
+        clean_text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Method 1: Look for existing bullet points or numbered lists
+        lines = text.split('\n')
+        existing_bullets = []
+        for line in lines:
+            line = line.strip()
+            if re.match(r'^[•\-\*]\s+', line) and len(line) > 10:
+                clean_bullet = line.lstrip('•-* ').strip()
+                existing_bullets.append(clean_bullet)
+            elif re.match(r'^\d+[\.\)]\s+', line) and len(line) > 10:
+                clean_bullet = re.sub(r'^\d+[\.\)]\s+', '', line).strip()
+                existing_bullets.append(clean_bullet)
+        
+        if existing_bullets and len(existing_bullets) >= 3:
+            return f"""KEY POINTS (Extracted from document):
+
+{chr(10).join([f"• {item}" for item in existing_bullets[:10]])}
+
+EXTRACTION INFO:
+• {len(existing_bullets)} structured items found
+• Source: Document formatting analysis"""
+        
+        # Method 2: Intelligent extraction from sentences
+        sentences = re.split(r'(?<=[.!?])\s+', clean_text)
+        sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 20]
+        
+        # Analyze word frequency for importance
+        words = clean_text.lower().split()
+        word_freq = Counter(words)
+        
+        # Important keywords for different content types
+        importance_keywords = {
+            'recipe': ['ingredients', 'recipe', 'cook', 'bake', 'mix', 'add', 'heat', 'serve', 'prepare'],
+            'legal': ['shall', 'must', 'required', 'agreement', 'contract', 'terms', 'conditions'],
+            'business': ['company', 'business', 'revenue', 'profit', 'market', 'strategy', 'plan'],
+            'technical': ['system', 'process', 'method', 'procedure', 'algorithm', 'data', 'analysis'],
+            'general': ['important', 'key', 'main', 'essential', 'significant', 'major', 'primary']
+        }
+        
+        # Score sentences for importance
+        scored_sentences = []
+        for sentence in sentences:
+            score = 0
+            sentence_lower = sentence.lower()
+            
+            # Keyword matching
+            for category, keywords in importance_keywords.items():
+                for keyword in keywords:
+                    if keyword in sentence_lower:
+                        score += 5
+            
+            # Length scoring (prefer moderate length)
+            if 30 <= len(sentence) <= 120:
+                score += 3
+            elif 120 <= len(sentence) <= 200:
+                score += 1
+            
+            # Numerical data presence
+            if re.search(r'\d+', sentence):
+                score += 2
+            
+            # Capitalization (proper nouns)
+            capital_words = re.findall(r'\b[A-Z][a-z]+', sentence)
+            score += len(capital_words) * 0.5
+            
+            # Frequency of important words
+            sentence_words = sentence_lower.split()
+            for word in sentence_words:
+                if len(word) > 4 and word_freq.get(word, 0) > 2:
+                    score += 1
+            
+            scored_sentences.append((score, sentence))
+        
+        # Sort by score and select top sentences
+        scored_sentences.sort(reverse=True, key=lambda x: x[0])
+        
+        # Take top scoring sentences
+        top_sentences = [s[1] for s in scored_sentences[:8]]
+        
+        bullet_points = f"""KEY POINTS (Intelligent Extraction):
+
+{chr(10).join([f"• {sentence[:150]}{'...' if len(sentence) > 150 else ''}" for sentence in top_sentences])}
+
+ANALYSIS INFO:
+• Sentences analyzed: {len(sentences)}
+• Key points extracted: {len(top_sentences)}
+• Method: NLP-based importance scoring"""
+        
+        return bullet_points
+        
+    except Exception as e:
+        app.logger.error(f"Key points extraction failed: {e}")
         return f"KEY POINTS:\n\n• {text[:200]}{'...' if len(text) > 200 else ''}"
 
 if __name__ == '__main__':

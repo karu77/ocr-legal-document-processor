@@ -1,30 +1,13 @@
 @echo off
 echo Starting OCR Legal Document Processor...
-echo.
 
-REM Check if .env file exists
-if not exist .env (
-    echo Error: .env file not found!
-    echo Please copy env.example to .env and add your Gemini API key.
-    pause
-    exit /b
-)
-
-REM Start backend in new window
-echo Starting Flask backend...
+:: Start backend server
 start cmd /k "cd backend && python app.py"
 
-REM Wait a moment for backend to start
-timeout /t 3 /nobreak >nul
+:: Wait for 2 seconds to let backend initialize
+timeout /t 2 /nobreak > nul
 
-REM Start frontend in new window
-echo Starting React frontend...
+:: Start frontend server
 start cmd /k "cd frontend && npm run dev"
 
-echo.
-echo Both servers are starting...
-echo Frontend: http://localhost:3000
-echo Backend: http://localhost:5000
-echo.
-echo Press any key to exit...
-pause >nul 
+echo Servers started! Access the application at http://localhost:3001 
