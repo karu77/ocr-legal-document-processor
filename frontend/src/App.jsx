@@ -7,6 +7,7 @@ import ActionButtons from './components/ActionButtons'
 import ResultsDisplay from './components/ResultsDisplay'
 import DocumentComparison from './components/DocumentComparison'
 import LoadingSpinner from './components/LoadingSpinner'
+import AuthModal from './components/AuthModal'
 import { 
   DocumentTextIcon, 
   GlobeAltIcon, 
@@ -15,7 +16,10 @@ import {
   ClockIcon,
   CheckCircleIcon,
   SunIcon,
-  MoonIcon
+  MoonIcon,
+  UserIcon,
+  ArrowRightOnRectangleIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline'
 import axios from 'axios'
 
@@ -130,11 +134,44 @@ function App() {
     filename: ''
   })
   
+  // Authentication state
+  const [user, setUser] = useState(null)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  
   // Theme state
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme')
     return savedTheme ? savedTheme : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   })
+
+  // Initialize authentication on app start
+  useEffect(() => {
+    const checkAuth = async () => {
+      const accessToken = localStorage.getItem('access_token')
+      const savedUser = localStorage.getItem('user')
+      
+      if (accessToken && savedUser) {
+        try {
+          // Set default authorization header
+          axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+          
+          // Verify token is still valid by fetching user profile
+          const response = await axios.get('/auth/profile')
+          if (response.data.success) {
+            setUser(response.data.user)
+          } else {
+            // Token might be expired, try to refresh
+            await handleTokenRefresh()
+          }
+        } catch (error) {
+          // Token is invalid, try to refresh
+          await handleTokenRefresh()
+        }
+      }
+    }
+    
+    checkAuth()
+  }, [])
 
   // Apply theme to document element
   useEffect(() => {
@@ -152,10 +189,64 @@ function App() {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'))
   }, [])
 
+  // Authentication handlers
+  const handleTokenRefresh = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (!refreshToken) {
+        throw new Error('No refresh token')
+      }
+      
+      const response = await axios.post('/auth/refresh', { refresh_token: refreshToken })
+      if (response.data.success) {
+        localStorage.setItem('access_token', response.data.tokens.access_token)
+        localStorage.setItem('refresh_token', response.data.tokens.refresh_token)
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.tokens.access_token}`
+        
+        // Get user profile
+        const profileResponse = await axios.get('/auth/profile')
+        if (profileResponse.data.success) {
+          setUser(profileResponse.data.user)
+        }
+      } else {
+        throw new Error('Token refresh failed')
+      }
+    } catch (error) {
+      // Refresh failed, clear auth data
+      handleLogout()
+    }
+  }
+
+  const handleAuthSuccess = useCallback((userData) => {
+    setUser(userData)
+    // Set axios default header
+    const accessToken = localStorage.getItem('access_token')
+    if (accessToken) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+    }
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
+    delete axios.defaults.headers.common['Authorization']
+    setUser(null)
+    toast.success('Logged out successfully')
+  }, [])
+
+  const openAuthModal = useCallback(() => {
+    setIsAuthModalOpen(true)
+  }, [])
+
+  const closeAuthModal = useCallback(() => {
+    setIsAuthModalOpen(false)
+  }, [])
+
   // Handle file upload
-  const handleFileUpload = useCallback((uploadedFiles) => {
-    setFiles(uploadedFiles)
-    setError('')
+  const handleFileSelect = useCallback((selectedFiles) => {
+    setFiles(selectedFiles)
+    // Reset all results when new files are selected
     setResults({
       ocrText: '',
       translatedText: '',
@@ -165,7 +256,8 @@ function App() {
       comparison: null,
       filename: ''
     })
-    toast.success(`${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''} uploaded successfully!`)
+    setError('')
+    toast.success('File selected. Previous results cleared.')
   }, [])
 
   // Handle language selection
@@ -241,109 +333,195 @@ function App() {
   }
 
   const handleTranslate = async () => {
-    const textToTranslate = results.cleanedText || results.ocrText
-    if (!textToTranslate) {
-      toast.error('Please extract text first using OCR')
+    if (!results.ocrText && !results.cleanedText) {
+      toast.error('Please extract text first')
       return
     }
 
-    await makeApiCall('/translate', {
-      text: textToTranslate,
-      target_language: targetLanguage.name
-    }, (data) => {
-      setResults(prev => ({
-        ...prev,
-        translatedText: data.translated_text
-      }))
-    }, `Translation to ${targetLanguage.name}`)
+    // Check if user selected a language other than English
+    if (targetLanguage.name === 'English') {
+      toast.error('Please select a target language other than English from the dropdown above')
+      return
+    }
+
+    setLoading(true)
+    setCurrentOperation(`Translating to ${targetLanguage.name}`)
+    setError('')
+
+    try {
+      const textToTranslate = results.cleanedText || results.ocrText
+      console.log(`Translating to: ${targetLanguage.name}`)
+      
+      const response = await axios.post('/translate', {
+        text: textToTranslate,
+        target_language: targetLanguage.name
+      })
+
+      if (response.data.success) {
+        setResults(prev => ({
+          ...prev,
+          translatedText: response.data.translated_text
+        }))
+        toast.success(`Text translated to ${targetLanguage.name}`)
+      } else {
+        throw new Error(response.data.error || 'Translation failed')
+      }
+    } catch (error) {
+      console.error('Translation error:', error)
+      setError(`Translation failed: ${error.message}`)
+      toast.error('Failed to translate text')
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
+    }
   }
 
   const handleCleanup = async () => {
     if (!results.ocrText) {
-      toast.error('Please extract text first using OCR')
+      toast.error('Please extract text first')
       return
     }
 
-    await makeApiCall('/cleanup', {
-      text: results.ocrText
-    }, (data) => {
-      setResults(prev => ({
-        ...prev,
-        cleanedText: data.cleaned_text
-      }))
-    }, 'Text Cleanup')
+    setLoading(true)
+    setCurrentOperation('Cleaning Text')
+    setError('')
+
+    try {
+      const response = await axios.post('/cleanup', {
+        text: results.ocrText
+      })
+
+      if (response.data.success) {
+        setResults(prev => ({
+          ...prev,
+          cleanedText: response.data.cleaned_text
+        }))
+        toast.success('Text cleaned successfully')
+      } else {
+        throw new Error(response.data.error || 'Text cleanup failed')
+      }
+    } catch (error) {
+      console.error('Cleanup error:', error)
+      setError(`Text cleanup failed: ${error.message}`)
+      toast.error('Failed to clean text')
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
+    }
   }
 
   const handleSummarize = async () => {
-    const textToSummarize = results.translatedText || results.cleanedText || results.ocrText
-    if (!textToSummarize) {
-      toast.error('Please extract text first using OCR')
+    if (!results.ocrText && !results.cleanedText) {
+      toast.error('Please extract text first')
       return
     }
 
-    await makeApiCall('/summarize', {
-      text: textToSummarize
-    }, (data) => {
-      setResults(prev => ({
-        ...prev,
-        summary: data.summary_text
-      }))
-    }, 'Document Summarization')
+    setLoading(true)
+    setCurrentOperation('Summarizing')
+    setError('')
+
+    try {
+      const textToSummarize = results.cleanedText || results.ocrText
+      const response = await axios.post('/summarize', {
+        text: textToSummarize
+      })
+
+      if (response.data.success) {
+        setResults(prev => ({
+          ...prev,
+          summary: response.data.summary
+        }))
+        toast.success('Text summarized successfully')
+      } else {
+        throw new Error(response.data.error || 'Summarization failed')
+      }
+    } catch (error) {
+      console.error('Summarization error:', error)
+      setError(`Summarization failed: ${error.message}`)
+      toast.error('Failed to summarize text')
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
+    }
   }
 
   const handleBulletPoints = async () => {
-    const textToBulletPoint = results.translatedText || results.cleanedText || results.ocrText
-    if (!textToBulletPoint) {
-      toast.error('Please extract text first using OCR')
+    if (!results.ocrText && !results.cleanedText) {
+      toast.error('Please extract text first')
       return
     }
 
-    await makeApiCall('/bullet_points', {
-      text: textToBulletPoint
-    }, (data) => {
-      setResults(prev => ({
-        ...prev,
-        bulletPoints: data.bullet_points
-      }))
-    }, 'Bullet Point Generation')
+    setLoading(true)
+    setCurrentOperation('Generating Key Points')
+    setError('')
+
+    try {
+      const textToProcess = results.cleanedText || results.ocrText
+      const response = await axios.post('/bullet_points', {
+        text: textToProcess
+      })
+
+      if (response.data.success) {
+        setResults(prev => ({
+          ...prev,
+          bulletPoints: response.data.bullet_points
+        }))
+        toast.success('Key points generated successfully')
+      } else {
+        throw new Error(response.data.error || 'Key points generation failed')
+      }
+    } catch (error) {
+      console.error('Key points error:', error)
+      setError(`Key points generation failed: ${error.message}`)
+      toast.error('Failed to generate key points')
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
+    }
   }
 
   const handleCompare = async () => {
     if (files.length < 2) {
-      toast.error('Please upload at least two files for comparison')
+      toast.error('Please upload at least 2 files to compare')
       return
     }
 
-    const file1 = files[0]
-    const file2 = files[1]
-
-    const readPromises = files.map(file => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = (e) => resolve(e.target.result)
-        reader.onerror = (e) => reject(e)
-        reader.readAsText(file) // Assuming text comparison for now
-      })
-    })
+    setLoading(true)
+    setCurrentOperation('Comparing Documents')
+    setError('')
 
     try {
-      toast.loading('Reading files for comparison...', { id: 'file-read' })
-      const [text1, text2] = await Promise.all(readPromises)
-      toast.success('Files read!', { id: 'file-read' })
+      // First, extract text from both files
+      const extractedTexts = await Promise.all(
+        files.slice(0, 2).map(async (file) => {
+          const formData = new FormData()
+          formData.append('file', file)
+          const response = await axios.post('/ocr', formData)
+          return response.data.extracted_text
+        })
+      )
 
-      await makeApiCall('/compare', {
-        text1: text1,
-        text2: text2
-      }, (data) => {
+      // Then compare the extracted texts
+      const response = await axios.post('/compare', {
+        text1: extractedTexts[0],
+        text2: extractedTexts[1]
+      })
+
+      if (response.data.success) {
         setResults(prev => ({
           ...prev,
-          comparison: data
+          comparison: response.data.comparison
         }))
-      }, 'Document Comparison')
-
+      } else {
+        throw new Error(response.data.error || 'Failed to compare documents')
+      }
     } catch (error) {
-      toast.error('Failed to read files for comparison', { id: 'file-read' })
-      console.error('Error reading files for comparison:', error)
+      console.error('Error comparing documents:', error)
+      setError(`Failed to compare documents: ${error.message}`)
+      toast.error('Failed to compare documents')
+    } finally {
+      setLoading(false)
+      setCurrentOperation('')
     }
   }
 
@@ -358,19 +536,91 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900 dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 transition-colors duration-500 font-sans relative">
       <Toaster position="top-right" reverseOrder={false} />
       
-      {/* Theme Toggle Button */}
-      <motion.button 
-        onClick={toggleTheme}
-        className="fixed top-4 right-4 p-2 rounded-full bg-white dark:bg-gray-700 shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition-all duration-300 z-[100]"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
+      {/* Top Navigation Bar */}
+      <motion.nav 
+        className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-[100]"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        {theme === 'dark' ? (
-          <SunIcon className="h-6 w-6 text-yellow-400" />
-        ) : (
-          <MoonIcon className="h-6 w-6 text-gray-800" />
-        )}
-      </motion.button>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <DocumentTextIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  OCR Legal Processor
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  AI-Powered Document Processing
+                </p>
+              </div>
+            </div>
+
+            {/* Right side controls */}
+            <div className="flex items-center space-x-4">
+              {/* User Profile or Login */}
+              {user ? (
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {user.full_name || user.username}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {user.email}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <motion.button
+                      onClick={() => {/* TODO: Add profile modal */}}
+                      className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Cog6ToothIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                    </motion.button>
+                    <motion.button
+                      onClick={handleLogout}
+                      className="p-2 rounded-full bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-700 dark:text-red-300" />
+                    </motion.button>
+                  </div>
+                </div>
+              ) : (
+                <motion.button
+                  onClick={openAuthModal}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <UserIcon className="w-5 h-5" />
+                  <span className="font-medium">Sign In</span>
+                </motion.button>
+              )}
+
+              {/* Theme Toggle */}
+              <motion.button 
+                onClick={toggleTheme}
+                className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {theme === 'dark' ? (
+                  <SunIcon className="h-5 w-5 text-yellow-400" />
+                ) : (
+                  <MoonIcon className="h-5 w-5 text-gray-700" />
+                )}
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.nav>
 
       <div className="container mx-auto px-4 py-8 relative z-10">
         <motion.header 
@@ -403,7 +653,9 @@ function App() {
               <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200 flex items-center">
                 <DocumentTextIcon className="h-8 w-8 mr-3 text-blue-500" /> Document Input
               </h2>
-              <FileUpload onFileUpload={handleFileUpload} />
+              <FileUpload 
+                onFilesSelected={handleFileSelect}
+              />
               {files.length > 0 && (
                 <div className="mt-4 text-gray-700 dark:text-gray-300">
                   <p>Selected file: <span className="font-semibold">{files[0].name}</span></p>
@@ -425,6 +677,15 @@ function App() {
               
               <div className="mb-6 z-[99]"> {/* Ensure LanguageSelector has high z-index */}
                 <motion.div variants={itemVariants}>
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <GlobeAltIcon className="inline w-4 h-4 mr-1" />
+                      Translation Target Language
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Select the language you want to translate your document to
+                    </p>
+                  </div>
                   <LanguageSelector
                     selectedLanguage={targetLanguage}
                     onLanguageChange={handleLanguageChange}
@@ -492,7 +753,28 @@ function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Document Comparison */}
+        <AnimatePresence>
+          {results.comparison && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="mt-8"
+            >
+              <DocumentComparison comparison={results.comparison} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+        onAuthSuccess={handleAuthSuccess}
+      />
     </div>
   )
 }

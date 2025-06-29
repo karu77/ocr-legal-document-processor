@@ -189,9 +189,9 @@ const ActionButtons = ({
       disabled: !hasText,
       icon: GlobeAltIcon,
       title: 'Translate',
-      description: 'Translate to selected target language',
+      description: 'First select target language above, then translate',
       gradient: 'from-purple-500 to-pink-600',
-      processing: loading && (currentOperation || '').startsWith('Translation'),
+      processing: loading && (currentOperation || '').includes('Translating'),
       completed: results.translatedText !== '' && !loading
     },
     {

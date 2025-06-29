@@ -1,21 +1,32 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
 import os
 import tempfile
 import uuid
 import traceback
 import logging
-from werkzeug.utils import secure_filename
+import time
 
-from utils.ocr_processor import process_ocr
-from utils.gemini_client import GeminiClient
+from utils.ocr_processor import (
+    process_ocr, clean_text, summarize_text, 
+    extract_key_points, translate_text, compare_documents
+)
+# from utils.gemini_client import GeminiClient  # Not used - using libraries instead
+from utils.database import db_manager
+from utils.auth import auth_manager, require_auth, optional_auth
+from bson import ObjectId
+import json
 
 # Load environment variables
+from dotenv import load_dotenv
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+
+# Configure CORS
+CORS(app)
 
 # Configure logging for better error tracking
 logging.basicConfig(level=logging.DEBUG)
@@ -23,13 +34,160 @@ app.logger.setLevel(logging.DEBUG)
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'pdf'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'pdf', 'doc', 'docx', 'txt'}
 
-# Initialize Gemini client
-gemini_client = GeminiClient()
+# Configure upload folder
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Initialize database
+try:
+    db = db_manager.get_db()
+except:
+    print("⚠️  Database connection failed")
+    db = None
+
+# Initialize NLP libraries
+print("✅ Using library-based processing (no AI API required)")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def extract_text_from_word(filepath):
+    """Extract text from Word documents"""
+    try:
+        import docx2txt
+        text = docx2txt.process(filepath)
+        if text and text.strip():
+            return text.strip()
+        
+        from docx import Document
+        doc = Document(filepath)
+        text_parts = []
+        for paragraph in doc.paragraphs:
+            text_parts.append(paragraph.text)
+        return '\n'.join(text_parts)
+    except Exception as e:
+        return f"Error extracting text from Word document: {e}"
+
+def translate_with_libraries(text, target_language):
+    """Translate text using MyMemory Translation API"""
+    try:
+        import requests
+        
+        # Map common language names to codes
+        language_codes = {
+            'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it',
+            'Portuguese': 'pt', 'Russian': 'ru', 'Chinese': 'zh', 'Japanese': 'ja',
+            'Korean': 'ko', 'Arabic': 'ar', 'Hindi': 'hi', 'Thai': 'th',
+            'Vietnamese': 'vi', 'Indonesian': 'id', 'Malay': 'ms', 'Filipino': 'tl',
+            'Dutch': 'nl', 'Swedish': 'sv', 'Norwegian': 'no', 'Danish': 'da',
+            'Finnish': 'fi', 'Polish': 'pl', 'Czech': 'cs', 'Slovak': 'sk',
+            'Hungarian': 'hu', 'Romanian': 'ro', 'Bulgarian': 'bg', 'Croatian': 'hr',
+            'Serbian': 'sr', 'Slovenian': 'sl', 'Estonian': 'et', 'Latvian': 'lv',
+            'Lithuanian': 'lt', 'Turkish': 'tr', 'Hebrew': 'he', 'Persian': 'fa',
+            'Urdu': 'ur', 'Bengali': 'bn', 'Tamil': 'ta', 'Telugu': 'te',
+            'Marathi': 'mr', 'Gujarati': 'gu', 'Kannada': 'kn', 'Malayalam': 'ml',
+            'Punjabi': 'pa', 'Nepali': 'ne', 'Sinhala': 'si', 'Myanmar': 'my',
+            'Khmer': 'km', 'Lao': 'lo'
+        }
+        
+        target_code = language_codes.get(target_language, target_language.lower()[:2])
+        app.logger.info(f"Using language code: {target_code}")
+        
+        # Split text into smaller chunks (max 500 chars per request)
+        chunks = []
+        current_chunk = []
+        current_length = 0
+        
+        # Split by sentences first
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        
+        for sentence in sentences:
+            if current_length + len(sentence) > 500:
+                # Save current chunk and start new one
+                if current_chunk:
+                    chunks.append(' '.join(current_chunk))
+                current_chunk = [sentence]
+                current_length = len(sentence)
+            else:
+                current_chunk.append(sentence)
+                current_length += len(sentence)
+        
+        # Add final chunk if any
+        if current_chunk:
+            chunks.append(' '.join(current_chunk))
+        
+        translated_chunks = []
+        
+        # Translate each chunk
+        for chunk in chunks:
+            if not chunk.strip():
+                translated_chunks.append('')
+                continue
+            
+            try:
+                # Call MyMemory Translation API
+                url = 'https://api.mymemory.translated.net/get'
+                params = {
+                    'q': chunk,
+                    'langpair': f'en|{target_code}'
+                }
+                
+                response = requests.get(url, params=params)
+                data = response.json()
+                
+                if response.status_code == 200 and data['responseStatus'] == 200:
+                    translated_text = data['responseData']['translatedText']
+                    translated_chunks.append(translated_text)
+                else:
+                    app.logger.warning(f"Translation failed for chunk: {data.get('responseStatus')}")
+                    translated_chunks.append(chunk)
+                
+                # Add delay to respect rate limits
+                time.sleep(0.1)
+                
+            except Exception as e:
+                app.logger.warning(f"Chunk translation failed: {str(e)}")
+                translated_chunks.append(chunk)
+        
+        # Join all translated chunks
+        final_translation = ' '.join(translated_chunks)
+        
+        if final_translation and len(final_translation.strip()) > 0:
+            return f"[Translated to {target_language}]\n\n{final_translation}"
+        else:
+            raise Exception("Translation produced empty result")
+            
+    except Exception as e:
+        app.logger.error(f"Translation failed: {str(e)}")
+        return create_basic_translation_notice(text, target_language)
+
+def create_basic_translation_notice(text, target_language):
+    """Create a notice when translation services are not available"""
+    word_count = len(text.split())
+    char_count = len(text)
+    
+    notice = f"""[Translation Service Limited]
+
+Target Language: {target_language}
+Document Stats: {word_count} words, {char_count} characters
+
+Note: Advanced translation services are not available. To get a proper translation:
+1. Install Google Translate API: pip install googletrans==4.0.0-rc1
+2. Configure Gemini API key for AI translation
+3. Use online translation services for this document
+
+Original text follows below:
+
+---
+
+{text}"""
+    
+    return notice
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -37,193 +195,531 @@ def health_check():
     return jsonify({"status": "healthy", "message": "OCR Legal Document Processor API is running"})
 
 @app.route('/ocr', methods=['POST'])
-def ocr_endpoint():
+@app.route('/api/process', methods=['POST'])
+@optional_auth
+def process_document():
     """Extract text from uploaded image or PDF using OCR"""
     try:
         if 'file' not in request.files:
-            return jsonify({"error": "No file provided"}), 400
+            return jsonify({'error': 'No file provided', 'success': False}), 400
         
         file = request.files['file']
         if file.filename == '':
-            return jsonify({"error": "No file selected"}), 400
-        
+            return jsonify({'error': 'No file selected', 'success': False}), 400
+            
         if not allowed_file(file.filename):
-            return jsonify({"error": "File type not supported"}), 400
+            return jsonify({'error': 'File type not supported', 'success': False}), 400
         
-        # Save file temporarily
+        # Save file temporarily  
         filename = secure_filename(file.filename)
         temp_dir = tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{filename}")
         file.save(temp_path)
         
         try:
-            # Extract text using OCR
-            extracted_text = process_ocr(temp_path, filename)
+            # Handle different file types
+            file_extension = os.path.splitext(filename)[1].lower()
+            
+            if file_extension in ['.doc', '.docx']:
+                extracted_text = extract_text_from_word(temp_path)
+            elif file_extension == '.txt':
+                with open(temp_path, 'r', encoding='utf-8') as f:
+                    extracted_text = f.read()
+            else:
+                # Handle images and PDFs with OCR
+                extracted_text = process_ocr(temp_path, filename)
             
             if extracted_text.startswith("Error:"):
                 return jsonify({"success": False, "error": extracted_text}), 500
             
             return jsonify({
-                "success": True,
-                "extracted_text": extracted_text,
-                "filename": filename
+                'success': True,
+                'extracted_text': extracted_text,
+                'raw_text': extracted_text,
+                'filename': filename
             })
-        
+            
         finally:
             # Clean up temporary file
             if os.path.exists(temp_path):
                 os.remove(temp_path)
-    
+            
     except Exception as e:
         app.logger.error(f"Error during OCR processing: {e}")
-        return jsonify({"success": False, "error": f"OCR processing failed: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f'OCR processing failed: {str(e)}'}), 500
 
 @app.route('/translate', methods=['POST'])
-def translate_endpoint():
-    """Translate text using Gemini API"""
+@app.route('/api/translate', methods=['POST'])
+@optional_auth
+def translate_document():
+    """Translate text using library-based translation"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
-            return jsonify({"error": "Text is required"}), 400
+            return jsonify({'error': 'Text is required', 'success': False}), 400
         
         text = data['text']
         target_language = data.get('target_language', 'English')
         
-        if not text.strip():
-            return jsonify({"error": "Text cannot be empty"}), 400
+        # Debug logging
+        app.logger.info(f"Translation request: target_language = '{target_language}', text length = {len(text)}")
         
-        translated_text = gemini_client.translate_text(text, target_language)
+        if not text.strip():
+            return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
+            
+        # Check if user is trying to translate to the same language (likely English to English)
+        if target_language.lower() == 'english':
+            return jsonify({
+                'success': True,
+                'translated_text': f"[Already in {target_language}]\n\n{text}",
+                'target_language': target_language,
+                'message': f'Text is already in {target_language}'
+            })
+        
+        # Use library-based translation directly
+        translated_text = translate_with_libraries(text, target_language)
         
         return jsonify({
-            "success": True,
-            "translated_text": translated_text,
-            "target_language": target_language
+            'success': True,
+            'translated_text': translated_text,
+            'target_language': target_language
         })
-    
+        
     except Exception as e:
         app.logger.error(f"Translation error: {str(e)}")
-        app.logger.error(f"Full traceback: {traceback.format_exc()}")
-        print(f"TRANSLATION ERROR: {str(e)}")
-        print(f"FULL TRACEBACK: {traceback.format_exc()}")
-        return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f'Translation failed: {str(e)}'}), 500
 
 @app.route('/cleanup', methods=['POST'])
-def cleanup_endpoint():
-    """Clean up OCR text using Gemini API"""
+@optional_auth
+def cleanup_text_endpoint():
+    """Clean up OCR text using library-based cleaning"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
-            return jsonify({"error": "Text is required"}), 400
+            return jsonify({'error': 'Text is required', 'success': False}), 400
         
         text = data['text']
         
         if not text.strip():
-            return jsonify({"error": "Text cannot be empty"}), 400
+            return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
         
-        cleaned_text = gemini_client.cleanup_text(text)
+        # Use enhanced library-based text cleanup
+        cleaned_text = clean_text_with_libraries(text)
         
         return jsonify({
-            "success": True,
-            "cleaned_text": cleaned_text
+            'success': True,
+            'cleaned_text': cleaned_text
         })
-    
+        
     except Exception as e:
         app.logger.error(f"Cleanup error: {str(e)}")
-        app.logger.error(f"Full traceback: {traceback.format_exc()}")
-        print(f"CLEANUP ERROR: {str(e)}")
-        print(f"FULL TRACEBACK: {traceback.format_exc()}")
-        return jsonify({"error": f"Text cleanup failed: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f'Text cleanup failed: {str(e)}'}), 500
 
 @app.route('/summarize', methods=['POST'])
-def summarize_endpoint():
-    """Summarize text using Gemini API"""
+@optional_auth
+def summarize_text_endpoint():
+    """Summarize text using library-based summarization"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
-            return jsonify({"error": "Text is required"}), 400
+            return jsonify({'error': 'Text is required', 'success': False}), 400
         
         text = data['text']
         
         if not text.strip():
-            return jsonify({"error": "Text cannot be empty"}), 400
+            return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
         
-        summary = gemini_client.summarize_text(text)
+        # Use library-based summarization
+        summary = summarize_with_libraries(text)
         
         return jsonify({
-            "success": True,
-            "summary": summary
+            'success': True,
+            'summary': summary
         })
-    
+        
     except Exception as e:
         app.logger.error(f"Summarization error: {str(e)}")
-        app.logger.error(f"Full traceback: {traceback.format_exc()}")
-        print(f"SUMMARIZATION ERROR: {str(e)}")
-        print(f"FULL TRACEBACK: {traceback.format_exc()}")
-        return jsonify({"error": f"Summarization failed: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f'Summarization failed: {str(e)}'}), 500
 
 @app.route('/bullet_points', methods=['POST'])
-def bullet_endpoint():
-    """Generate bullet points from text using Gemini API"""
+@optional_auth
+def bullet_points_endpoint():
+    """Generate bullet points from text using library-based extraction"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
-            return jsonify({"error": "Text is required"}), 400
+            return jsonify({'error': 'Text is required', 'success': False}), 400
         
         text = data['text']
         
         if not text.strip():
-            return jsonify({"error": "Text cannot be empty"}), 400
+            return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
         
-        bullet_points = gemini_client.generate_bullet_points(text)
+        # Use library-based key points extraction
+        bullet_points = extract_key_points_with_libraries(text)
         
         return jsonify({
-            "success": True,
-            "bullet_points": bullet_points
+            'success': True,
+            'bullet_points': bullet_points
         })
-    
+        
     except Exception as e:
         app.logger.error(f"Bullet points error: {str(e)}")
-        app.logger.error(f"Full traceback: {traceback.format_exc()}")
-        print(f"BULLET POINTS ERROR: {str(e)}")
-        print(f"FULL TRACEBACK: {traceback.format_exc()}")
-        return jsonify({"error": f"Bullet point generation failed: {str(e)}"}), 500
+        return jsonify({'success': False, 'error': f'Bullet points generation failed: {str(e)}'}), 500
 
 @app.route('/compare', methods=['POST'])
-def compare_endpoint():
-    """Compare two documents using Gemini API"""
+@app.route('/api/compare', methods=['POST'])
+@optional_auth
+def compare_documents():
+    """Compare two documents using library-based comparison"""
     try:
         data = request.get_json()
         if not data or 'text1' not in data or 'text2' not in data:
-            return jsonify({"error": "Both text1 and text2 are required"}), 400
+            return jsonify({'error': 'Both texts are required for comparison', 'success': False}), 400
         
         text1 = data['text1']
         text2 = data['text2']
         
-        if not text1.strip() or not text2.strip():
-            return jsonify({"error": "Both texts must be non-empty"}), 400
-        
-        comparison_result = gemini_client.compare_documents(text1, text2)
+        # Use library-based document comparison
+        comparison = compare_documents_with_libraries(text1, text2)
         
         return jsonify({
-            "success": True,
-            "comparison": comparison_result
+            'success': True,
+            'comparison': comparison
         })
-    
+        
     except Exception as e:
-        return jsonify({"error": f"Document comparison failed: {str(e)}"}), 500
+        app.logger.error(f"Comparison error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Document comparison failed: {str(e)}'}), 500
+
+@app.route('/auth/register', methods=['POST'])
+def register():
+    """Register a new user"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided', 'success': False}), 400
+            
+        result = auth_manager.register_user(data)
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f"Registration error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Registration failed: {str(e)}'}), 500
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """Login a user"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided', 'success': False}), 400
+            
+        result = auth_manager.login_user(data)
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f"Login error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Login failed: {str(e)}'}), 500
+
+@app.route('/auth/refresh', methods=['POST'])
+def refresh_token():
+    """Refresh an access token"""
+    try:
+        data = request.get_json()
+        if not data or 'refresh_token' not in data:
+            return jsonify({'error': 'Refresh token is required', 'success': False}), 400
+            
+        result = auth_manager.refresh_access_token(data['refresh_token'])
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f"Token refresh error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Token refresh failed: {str(e)}'}), 500
+
+@app.route('/auth/profile', methods=['GET'])
+@require_auth
+def get_profile():
+    """Get user profile"""
+    try:
+        user_id = request.user_id
+        user = db.users.find_one({'_id': ObjectId(user_id)})
+        if not user:
+            return jsonify({'error': 'User not found', 'success': False}), 404
+            
+        # Remove sensitive data
+        user.pop('password', None)
+        user['_id'] = str(user['_id'])
+        
+        return jsonify({
+            'success': True,
+            'profile': user
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Profile fetch error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Could not fetch profile: {str(e)}'}), 500
 
 @app.errorhandler(413)
 def too_large(e):
-    return jsonify({"error": "File too large. Maximum size is 16MB"}), 413
+    """Handle file too large error"""
+    return jsonify({
+        'success': False,
+        'error': 'File is too large. Maximum size is 16MB.'
+    }), 413
 
 @app.errorhandler(500)
 def internal_server_error(e):
-    return jsonify({"error": "Internal server error"}), 500
+    """Handle internal server errors"""
+    app.logger.error(f"Internal server error: {str(e)}")
+    return jsonify({
+        'success': False,
+        'error': 'Internal server error occurred'
+    }), 500
+
+def clean_text_with_libraries(text):
+    """Enhanced text cleaning using libraries"""
+    import re
+    
+    # Remove extra whitespace and normalize line breaks
+    cleaned_text = re.sub(r'\s+', ' ', text)
+    
+    # Fix common OCR errors
+    cleaned_text = re.sub(r'([a-z])([A-Z])', r'\1 \2', cleaned_text)  # Add space between camelCase
+    cleaned_text = re.sub(r'(\d)([A-Za-z])', r'\1 \2', cleaned_text)  # Add space between numbers and letters
+    cleaned_text = re.sub(r'([A-Za-z])(\d)', r'\1 \2', cleaned_text)  # Add space between letters and numbers
+    cleaned_text = re.sub(r'([.!?])([A-Z])', r'\1 \2', cleaned_text)  # Add space after punctuation
+    
+    # Fix line breaks for better readability
+    cleaned_text = re.sub(r'(\w)\n(\w)', r'\1 \2', cleaned_text)  # Join broken words
+    cleaned_text = re.sub(r'\n+', '\n\n', cleaned_text)  # Normalize paragraph breaks
+    
+    # Remove excessive punctuation
+    cleaned_text = re.sub(r'\.{3,}', '...', cleaned_text)
+    cleaned_text = re.sub(r'-{2,}', '--', cleaned_text)
+    
+    # Fix spacing issues
+    cleaned_text = re.sub(r'\s*,\s*', ', ', cleaned_text)  # Fix comma spacing
+    cleaned_text = re.sub(r'\s*:\s*', ': ', cleaned_text)  # Fix colon spacing
+    cleaned_text = re.sub(r'\s*;\s*', '; ', cleaned_text)  # Fix semicolon spacing
+    
+    # Trim and clean final result
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
+
+def summarize_with_libraries(text):
+    """Generate summary using text processing libraries"""
+    try:
+        import re
+        from collections import Counter
+        
+        # Clean and prepare text
+        clean_text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Split into sentences
+        sentences = re.split(r'(?<=[.!?])\s+', clean_text)
+        sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 15]
+        
+        if len(sentences) < 3:
+            return f"BRIEF SUMMARY:\n\n{clean_text[:500]}{'...' if len(clean_text) > 500 else ''}"
+        
+        # Score sentences based on word frequency and position
+        words = clean_text.lower().split()
+        word_freq = Counter(words)
+        
+        # Remove common stop words
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'}
+        
+        # Score each sentence
+        sentence_scores = []
+        for i, sentence in enumerate(sentences):
+            score = 0
+            sentence_words = sentence.lower().split()
+            
+            # Word frequency score
+            for word in sentence_words:
+                if word not in stop_words and len(word) > 2:
+                    score += word_freq.get(word, 0)
+            
+            # Position bonus (earlier sentences get higher score)
+            position_bonus = len(sentences) - i
+            score += position_bonus * 2
+            
+            # Length bonus (moderate length sentences)
+            if 50 <= len(sentence) <= 150:
+                score += 10
+            
+            sentence_scores.append((score, sentence, i))
+        
+        # Sort by score and select top sentences
+        sentence_scores.sort(reverse=True)
+        top_sentences = sentence_scores[:min(4, len(sentence_scores))]
+        
+        # Sort selected sentences by original order
+        top_sentences.sort(key=lambda x: x[2])
+        
+        # Create structured summary
+        main_summary = '. '.join([s[1] for s in top_sentences])
+        
+        # Add statistics
+        word_count = len(words)
+        char_count = len(text)
+        
+        summary = f"""DOCUMENT SUMMARY
+
+{main_summary}
+
+DOCUMENT STATISTICS:
+• Total words: {word_count:,}
+• Total characters: {char_count:,}
+• Sentences analyzed: {len(sentences)}
+• Key sentences selected: {len(top_sentences)}
+• Compression ratio: {len(main_summary)/len(clean_text)*100:.1f}%"""
+        
+        return summary
+        
+    except Exception as e:
+        app.logger.error(f"Summary generation failed: {e}")
+        return f"SUMMARY:\n\n{text[:800]}{'...' if len(text) > 800 else ''}"
+
+def extract_key_points_with_libraries(text):
+    """Extract key points using NLP libraries"""
+    try:
+        import re
+        from collections import Counter
+        
+        # Clean text first
+        clean_text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Method 1: Look for existing bullet points or numbered lists
+        lines = text.split('\n')
+        existing_bullets = []
+        for line in lines:
+            line = line.strip()
+            if re.match(r'^[•\-\*]\s+', line) and len(line) > 10:
+                clean_bullet = line.lstrip('•-* ').strip()
+                existing_bullets.append(clean_bullet)
+            elif re.match(r'^\d+[\.\)]\s+', line) and len(line) > 10:
+                clean_bullet = re.sub(r'^\d+[\.\)]\s+', '', line).strip()
+                existing_bullets.append(clean_bullet)
+        
+        if existing_bullets and len(existing_bullets) >= 3:
+            return f"""KEY POINTS (Extracted from document):
+
+{chr(10).join([f"• {item}" for item in existing_bullets[:10]])}
+
+EXTRACTION INFO:
+• {len(existing_bullets)} structured items found
+• Source: Document formatting analysis"""
+        
+        # Method 2: Intelligent extraction from sentences
+        sentences = re.split(r'(?<=[.!?])\s+', clean_text)
+        sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 20]
+        
+        # Analyze word frequency for importance
+        words = clean_text.lower().split()
+        word_freq = Counter(words)
+        
+        # Important keywords for different content types
+        importance_keywords = {
+            'recipe': ['ingredients', 'recipe', 'cook', 'bake', 'mix', 'add', 'heat', 'serve', 'prepare'],
+            'legal': ['shall', 'must', 'required', 'agreement', 'contract', 'terms', 'conditions'],
+            'business': ['company', 'business', 'revenue', 'profit', 'market', 'strategy', 'plan'],
+            'technical': ['system', 'process', 'method', 'procedure', 'algorithm', 'data', 'analysis'],
+            'general': ['important', 'key', 'main', 'essential', 'significant', 'major', 'primary']
+        }
+        
+        # Score sentences for importance
+        scored_sentences = []
+        for sentence in sentences:
+            score = 0
+            sentence_lower = sentence.lower()
+            
+            # Keyword matching
+            for category, keywords in importance_keywords.items():
+                for keyword in keywords:
+                    if keyword in sentence_lower:
+                        score += 5
+            
+            # Length scoring (prefer moderate length)
+            if 30 <= len(sentence) <= 120:
+                score += 3
+            elif 120 <= len(sentence) <= 200:
+                score += 1
+            
+            # Numerical data presence
+            if re.search(r'\d+', sentence):
+                score += 2
+            
+            # Capitalization (proper nouns)
+            capital_words = re.findall(r'\b[A-Z][a-z]+', sentence)
+            score += len(capital_words) * 0.5
+            
+            # Frequency of important words
+            sentence_words = sentence_lower.split()
+            for word in sentence_words:
+                if len(word) > 4 and word_freq.get(word, 0) > 2:
+                    score += 1
+            
+            scored_sentences.append((score, sentence))
+        
+        # Sort by score and select top sentences
+        scored_sentences.sort(reverse=True, key=lambda x: x[0])
+        
+        # Take top scoring sentences
+        top_sentences = [s[1] for s in scored_sentences[:8]]
+        
+        bullet_points = f"""KEY POINTS (Intelligent Extraction):
+
+{chr(10).join([f"• {sentence[:150]}{'...' if len(sentence) > 150 else ''}" for sentence in top_sentences])}
+
+ANALYSIS INFO:
+• Sentences analyzed: {len(sentences)}
+• Key points extracted: {len(top_sentences)}
+• Method: NLP-based importance scoring"""
+        
+        return bullet_points
+        
+    except Exception as e:
+        app.logger.error(f"Key points extraction failed: {e}")
+        return f"KEY POINTS:\n\n• {text[:200]}{'...' if len(text) > 200 else ''}"
+
+def compare_documents_with_libraries(text1, text2):
+    """Compare documents using text analysis libraries"""
+    try:
+        import re
+        from difflib import SequenceMatcher
+        
+        # Basic similarity calculation
+        similarity = SequenceMatcher(None, text1, text2).ratio()
+        
+        # Word-level analysis
+        words1 = set(re.findall(r'\w+', text1.lower()))
+        words2 = set(re.findall(r'\w+', text2.lower()))
+        
+        common_words = words1.intersection(words2)
+        unique1 = words1 - words2
+        unique2 = words2 - words1
+        
+        comparison = {
+            'similarity_score': round(similarity * 100, 1),
+            'common_words': len(common_words),
+            'unique_to_doc1': len(unique1),
+            'unique_to_doc2': len(unique2),
+            'word_overlap': round(len(common_words) / len(words1.union(words2)) * 100, 1),
+            'summary': f"Documents are {similarity*100:.1f}% similar with {len(common_words)} common words."
+        }
+        
+        return comparison
+        
+    except Exception as e:
+        app.logger.error(f"Document comparison failed: {e}")
+        return {
+            'similarity_score': 50,
+            'error': f"Comparison failed: {str(e)}",
+            'summary': "Could not complete document comparison."
+        }
 
 if __name__ == '__main__':
-    # Check if Gemini API key is set
-    if not os.getenv('GEMINI_API_KEY'):
-        print("Warning: GEMINI_API_KEY not found in environment variables")
-        print("Please set your Gemini API key in the .env file")
-    
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=True, host='0.0.0.0', port=5000)
