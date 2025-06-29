@@ -1,0 +1,10 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: flask-cors in c:\users\lokesh\appdata\roaming\python\python313\site-packages (3.0.10)
+Requirement already satisfied: Flask>=0.9 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from flask-cors) (2.2.3)
+Requirement already satisfied: Six in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from flask-cors) (1.17.0)
+Requirement already satisfied: Werkzeug>=2.2.2 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from Flask>=0.9->flask-cors) (2.2.3)
+Requirement already satisfied: Jinja2>=3.0 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from Flask>=0.9->flask-cors) (3.1.6)
+Requirement already satisfied: itsdangerous>=2.0 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from Flask>=0.9->flask-cors) (2.2.0)
+Requirement already satisfied: click>=8.0 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from Flask>=0.9->flask-cors) (8.1.8)
+Requirement already satisfied: colorama in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from click>=8.0->Flask>=0.9->flask-cors) (0.4.6)
+Requirement already satisfied: MarkupSafe>=2.0 in c:\users\lokesh\appdata\roaming\python\python313\site-packages (from Jinja2>=3.0->Flask>=0.9->flask-cors) (3.0.2)

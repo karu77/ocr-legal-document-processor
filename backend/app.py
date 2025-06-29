@@ -33,7 +33,20 @@ app.logger.setLevel(logging.DEBUG)
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'pdf', 'doc', 'docx', 'txt'}
+ALLOWED_EXTENSIONS = {
+    # Image formats
+    'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'tif', 'webp',
+    # Document formats
+    'pdf', 'doc', 'docx', 'txt', 'rtf',
+    # Spreadsheet formats
+    'xls', 'xlsx', 'csv',
+    # Presentation formats
+    'ppt', 'pptx',
+    # OpenDocument formats
+    'odt', 'ods', 'odp',
+    # Web formats
+    'html', 'htm', 'xml'
+}
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')

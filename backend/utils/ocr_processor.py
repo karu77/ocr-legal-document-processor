@@ -29,6 +29,55 @@ try:
 except ImportError:
     PDF_SUPPORT = False
 
+# Import for Excel processing
+try:
+    import openpyxl
+    import xlrd
+    import pandas as pd
+    EXCEL_SUPPORT = True
+except ImportError:
+    EXCEL_SUPPORT = False
+
+# Import for PowerPoint processing
+try:
+    from pptx import Presentation
+    POWERPOINT_SUPPORT = True
+except ImportError:
+    POWERPOINT_SUPPORT = False
+
+# Import for OpenDocument processing
+try:
+    from odf.opendocument import load
+    from odf.text import P
+    from odf.element import Text
+    from odf.teletype import extractText
+    OPENDOCUMENT_SUPPORT = True
+except ImportError:
+    OPENDOCUMENT_SUPPORT = False
+
+# Import for HTML processing
+try:
+    from bs4 import BeautifulSoup
+    import lxml
+    HTML_SUPPORT = True
+except ImportError:
+    HTML_SUPPORT = False
+
+# Import for advanced text processing
+try:
+    import chardet
+    import textract
+    ADVANCED_TEXT_SUPPORT = True
+except ImportError:
+    ADVANCED_TEXT_SUPPORT = False
+
+# Import for alternative OCR
+try:
+    import easyocr
+    EASYOCR_SUPPORT = True
+except ImportError:
+    EASYOCR_SUPPORT = False
+
 # Set up Google Cloud Vision client
 # Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set
 # or provide credentials directly.
@@ -72,6 +121,227 @@ def install_poppler_guide():
     conda install -c conda-forge poppler
     """
 
+def extract_text_from_excel(filepath):
+    """Extract text from Excel files (XLS, XLSX)"""
+    if not EXCEL_SUPPORT:
+        return "Error: Excel support not installed. Please install: pip install openpyxl xlrd pandas"
+    
+    try:
+        # Try to detect file format and read accordingly
+        file_extension = os.path.splitext(filepath)[1].lower()
+        
+        if file_extension == '.xlsx':
+            # Use openpyxl for .xlsx files
+            workbook = openpyxl.load_workbook(filepath, data_only=True)
+            text_parts = []
+            
+            for sheet_name in workbook.sheetnames:
+                sheet = workbook[sheet_name]
+                text_parts.append(f"=== Sheet: {sheet_name} ===")
+                
+                for row in sheet.iter_rows(values_only=True):
+                    row_text = []
+                    for cell in row:
+                        if cell is not None and str(cell).strip():
+                            row_text.append(str(cell))
+                    if row_text:
+                        text_parts.append(" | ".join(row_text))
+                text_parts.append("")
+            
+            return "\n".join(text_parts)
+        
+        elif file_extension == '.xls':
+            # Use pandas for .xls files (handles both xlrd and openpyxl)
+            try:
+                excel_file = pd.ExcelFile(filepath)
+                text_parts = []
+                
+                for sheet_name in excel_file.sheet_names:
+                    df = pd.read_excel(filepath, sheet_name=sheet_name)
+                    text_parts.append(f"=== Sheet: {sheet_name} ===")
+                    
+                    # Convert DataFrame to text
+                    for index, row in df.iterrows():
+                        row_text = []
+                        for value in row:
+                            if pd.notna(value) and str(value).strip():
+                                row_text.append(str(value))
+                        if row_text:
+                            text_parts.append(" | ".join(row_text))
+                    text_parts.append("")
+                
+                return "\n".join(text_parts)
+            except Exception as e:
+                return f"Error reading XLS file: {e}"
+        
+    except Exception as e:
+        return f"Error extracting text from Excel file: {e}"
+
+def extract_text_from_powerpoint(filepath):
+    """Extract text from PowerPoint files (PPT, PPTX)"""
+    if not POWERPOINT_SUPPORT:
+        return "Error: PowerPoint support not installed. Please install: pip install python-pptx"
+    
+    try:
+        presentation = Presentation(filepath)
+        text_parts = []
+        
+        for slide_num, slide in enumerate(presentation.slides, 1):
+            text_parts.append(f"=== Slide {slide_num} ===")
+            
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text.strip():
+                    text_parts.append(shape.text.strip())
+                    
+                # Handle tables in slides
+                if shape.shape_type == 19:  # Table
+                    try:
+                        table = shape.table
+                        for row in table.rows:
+                            row_text = []
+                            for cell in row.cells:
+                                if cell.text.strip():
+                                    row_text.append(cell.text.strip())
+                            if row_text:
+                                text_parts.append(" | ".join(row_text))
+                    except:
+                        pass
+            
+            text_parts.append("")
+        
+        return "\n".join(text_parts)
+    
+    except Exception as e:
+        return f"Error extracting text from PowerPoint: {e}"
+
+def extract_text_from_opendocument(filepath):
+    """Extract text from OpenDocument files (ODT, ODS, ODP)"""
+    if not OPENDOCUMENT_SUPPORT:
+        return "Error: OpenDocument support not installed. Please install: pip install odfpy"
+    
+    try:
+        doc = load(filepath)
+        text_parts = []
+        
+        # Extract all text elements
+        for element in doc.getElementsByType(P):
+            text = extractText(element)
+            if text.strip():
+                text_parts.append(text.strip())
+        
+        return "\n".join(text_parts) if text_parts else "No text found in OpenDocument file"
+    
+    except Exception as e:
+        return f"Error extracting text from OpenDocument: {e}"
+
+def extract_text_from_html(filepath):
+    """Extract text from HTML files"""
+    if not HTML_SUPPORT:
+        return "Error: HTML support not installed. Please install: pip install beautifulsoup4 lxml"
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as file:
+            content = file.read()
+        
+        soup = BeautifulSoup(content, 'lxml')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        # Get text
+        text = soup.get_text()
+        
+        # Clean up whitespace
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+        
+        return text if text else "No text found in HTML file"
+    
+    except Exception as e:
+        return f"Error extracting text from HTML: {e}"
+
+def extract_text_from_csv(filepath):
+    """Extract text from CSV files"""
+    try:
+        # Try different encodings
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(filepath, encoding=encoding)
+                text_parts = []
+                
+                # Add column headers
+                headers = " | ".join(str(col) for col in df.columns)
+                text_parts.append(f"=== Headers ===\n{headers}\n")
+                
+                # Add data rows
+                text_parts.append("=== Data ===")
+                for index, row in df.iterrows():
+                    row_text = []
+                    for value in row:
+                        if pd.notna(value) and str(value).strip():
+                            row_text.append(str(value))
+                    if row_text:
+                        text_parts.append(" | ".join(row_text))
+                
+                return "\n".join(text_parts)
+            
+            except UnicodeDecodeError:
+                continue
+        
+        return "Error: Unable to decode CSV file with common encodings"
+    
+    except Exception as e:
+        return f"Error extracting text from CSV: {e}"
+
+def extract_text_with_textract(filepath):
+    """Fallback text extraction using textract for various formats"""
+    if not ADVANCED_TEXT_SUPPORT:
+        return "Error: Advanced text support not installed. Please install: pip install textract"
+    
+    try:
+        text = textract.process(filepath, encoding='utf-8')
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
+        return text.strip() if text else "No text could be extracted"
+    
+    except Exception as e:
+        return f"Error extracting text with textract: {e}"
+
+def detect_file_encoding(filepath):
+    """Detect file encoding for better text extraction"""
+    try:
+        with open(filepath, 'rb') as file:
+            raw_data = file.read()
+            result = chardet.detect(raw_data)
+            return result.get('encoding', 'utf-8')
+    except:
+        return 'utf-8'
+
+def extract_text_with_easyocr(filepath):
+    """Alternative OCR using EasyOCR for better multilingual support"""
+    if not EASYOCR_SUPPORT:
+        return None
+    
+    try:
+        reader = easyocr.Reader(['en'])  # Can add more languages as needed
+        result = reader.readtext(filepath)
+        
+        # Extract text from results
+        text_parts = []
+        for (bbox, text, confidence) in result:
+            if confidence > 0.5:  # Only include high-confidence text
+                text_parts.append(text)
+        
+        return "\n".join(text_parts) if text_parts else None
+    
+    except Exception as e:
+        print(f"EasyOCR failed: {e}")
+        return None
+
 def extract_text_from_docx(filepath):
     """Extract text from DOCX files"""
     try:
@@ -100,20 +370,19 @@ def extract_text_from_doc(filepath):
     except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
         pass
     
-    try:
-        # Try using textract
-        import textract
-        text = textract.process(filepath, encoding='utf-8')
-        return text.decode('utf-8')
-    except ImportError:
-        return "Error: textract not installed. Please install: pip install textract"
-    except Exception as e:
-        return f"Error extracting text from DOC: {e}"
+    # Fallback to textract
+    return extract_text_with_textract(filepath)
 
 def extract_text_from_txt(filepath):
     """Extract text from TXT files"""
     try:
-        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        # First try to detect encoding
+        if ADVANCED_TEXT_SUPPORT:
+            encoding = detect_file_encoding(filepath)
+            encodings = [encoding, 'utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        else:
+            encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        
         for encoding in encodings:
             try:
                 with open(filepath, 'r', encoding=encoding) as file:
@@ -190,6 +459,7 @@ def process_ocr(filepath, filename):
     file_extension = os.path.splitext(filename)[1].lower()
     extracted_text = ""
 
+    # PDF Files
     if file_extension == '.pdf':
         if not PDF_SUPPORT:
             extracted_text = "Error: pdf2image not installed. Please install: pip install pdf2image"
@@ -217,6 +487,7 @@ def process_ocr(filepath, filename):
                 if "Error:" in extracted_text:
                     extracted_text = f"Error: Failed to extract text from PDF. {e}\n\n{install_poppler_guide()}"
 
+    # Microsoft Word Documents
     elif file_extension in ['.docx']:
         if not WORD_SUPPORT:
             extracted_text = "Error: Word document support not installed. Please install: pip install python-docx docx2txt"
@@ -226,24 +497,41 @@ def process_ocr(filepath, filename):
     elif file_extension in ['.doc']:
         extracted_text = extract_text_from_doc(filepath)
 
+    # Microsoft Excel Files
+    elif file_extension in ['.xlsx', '.xls']:
+        extracted_text = extract_text_from_excel(filepath)
+
+    # Microsoft PowerPoint Files
+    elif file_extension in ['.pptx']:
+        extracted_text = extract_text_from_powerpoint(filepath)
+    
+    elif file_extension in ['.ppt']:
+        # For older PPT format, try textract first
+        extracted_text = extract_text_with_textract(filepath)
+        if "Error:" in extracted_text:
+            extracted_text = "Error: PPT format requires textract. Please install: pip install textract"
+
+    # OpenDocument Formats
+    elif file_extension in ['.odt', '.ods', '.odp']:
+        extracted_text = extract_text_from_opendocument(filepath)
+
+    # Text Files
     elif file_extension in ['.txt', '.text']:
         extracted_text = extract_text_from_txt(filepath)
 
-    elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp']:
-        try:
-            image = Image.open(filepath)
-            extracted_text = pytesseract.image_to_string(image)
-            if not extracted_text.strip():
-                extracted_text = "Warning: No text detected in image. The image may not contain readable text."
+    # CSV Files
+    elif file_extension in ['.csv']:
+        extracted_text = extract_text_from_csv(filepath)
 
-        except Exception as e:
-            print(f"Error processing image with Tesseract: {e}")
-            extracted_text = f"Error: Failed to extract text from image using Tesseract. {e}"
+    # HTML/XML Files
+    elif file_extension in ['.html', '.htm', '.xml']:
+        extracted_text = extract_text_from_html(filepath)
 
+    # RTF Files
     elif file_extension in ['.rtf']:
         try:
             import striprtf
-            with open(filepath, 'r') as file:
+            with open(filepath, 'r', encoding='utf-8') as file:
                 rtf_content = file.read()
                 extracted_text = striprtf.striprtf(rtf_content)
         except ImportError:
@@ -251,9 +539,49 @@ def process_ocr(filepath, filename):
         except Exception as e:
             extracted_text = f"Error processing RTF file: {e}"
 
+    # Image Files (OCR Processing)
+    elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.tif']:
+        try:
+            # Try EasyOCR first for better results
+            if EASYOCR_SUPPORT:
+                easyocr_text = extract_text_with_easyocr(filepath)
+                if easyocr_text:
+                    extracted_text = easyocr_text
+                else:
+                    # Fallback to Tesseract
+                    image = Image.open(filepath)
+                    extracted_text = pytesseract.image_to_string(image)
+            else:
+                # Use Tesseract
+                image = Image.open(filepath)
+                extracted_text = pytesseract.image_to_string(image)
+            
+            if not extracted_text.strip():
+                extracted_text = "Warning: No text detected in image. The image may not contain readable text."
+
+        except Exception as e:
+            print(f"Error processing image with OCR: {e}")
+            extracted_text = f"Error: Failed to extract text from image. {e}"
+
+    # Generic fallback for other formats
     else:
-        supported_formats = ['.pdf', '.docx', '.doc', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.rtf']
-        extracted_text = f"Error: Unsupported file type '{file_extension}'. Supported formats: {', '.join(supported_formats)}"
+        # Try textract as a last resort for unknown formats
+        if ADVANCED_TEXT_SUPPORT:
+            extracted_text = extract_text_with_textract(filepath)
+            if "Error:" in extracted_text:
+                supported_formats = [
+                    '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+                    '.odt', '.ods', '.odp', '.txt', '.csv', '.html', '.htm', '.xml',
+                    '.rtf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'
+                ]
+                extracted_text = f"Error: Unsupported file type '{file_extension}'. Supported formats: {', '.join(supported_formats)}"
+        else:
+            supported_formats = [
+                '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+                '.odt', '.ods', '.odp', '.txt', '.csv', '.html', '.htm', '.xml',
+                '.rtf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'
+            ]
+            extracted_text = f"Error: Unsupported file type '{file_extension}'. Supported formats: {', '.join(supported_formats)}"
     
     return extracted_text if extracted_text else "No text could be extracted from this document."
 

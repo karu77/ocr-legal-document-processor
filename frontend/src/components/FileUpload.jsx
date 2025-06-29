@@ -9,7 +9,7 @@ const FileUpload = ({ onFilesSelected }) => {
 
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
     if (rejectedFiles.length > 0) {
-      toast.error('Some files were rejected. Please upload PDF or image files only.')
+      toast.error('Some files were rejected. Please upload supported document, spreadsheet, presentation, or image files only.')
       return
     }
 
@@ -34,8 +34,29 @@ const FileUpload = ({ onFilesSelected }) => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'],
-      'application/pdf': ['.pdf']
+      // Image formats
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.webp'],
+      // Document formats
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
+      'application/rtf': ['.rtf'],
+      // Spreadsheet formats
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/csv': ['.csv'],
+      // Presentation formats
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      // OpenDocument formats
+      'application/vnd.oasis.opendocument.text': ['.odt'],
+      'application/vnd.oasis.opendocument.spreadsheet': ['.ods'],
+      'application/vnd.oasis.opendocument.presentation': ['.odp'],
+      // Web formats
+      'text/html': ['.html', '.htm'],
+      'application/xml': ['.xml'],
+      'text/xml': ['.xml']
     },
     multiple: true,
     maxFiles: 2,
@@ -86,7 +107,7 @@ const FileUpload = ({ onFilesSelected }) => {
           </p>
           
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            Supported formats: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF (Max 16MB each)
+            Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, ODS, ODP, TXT, RTF, CSV, HTML, XML, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP (Max 16MB each)
           </p>
           
           {selectedFiles.length > 0 && (
