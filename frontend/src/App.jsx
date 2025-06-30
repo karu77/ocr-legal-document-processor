@@ -425,47 +425,27 @@ function App() {
   }
 
   const handleTranslate = async () => {
-    if (!results.ocrText && !results.cleanedText) {
-      toast.error('Please extract text first')
+    if (!results.ocrText) {
+      toast.error('Please perform OCR on a document first')
       return
     }
 
-    // Check if user selected a language other than English
-    if (targetLanguage.name === 'English') {
-      toast.error('Please select a target language other than English from the dropdown above')
-      return
-    }
-
-    setLoading(true)
-    setCurrentOperation(`Translating to ${targetLanguage.name}`)
-    setError('')
-
-    try {
-      const textToTranslate = results.cleanedText || results.ocrText
-      console.log(`Translating to: ${targetLanguage.name}`)
-      
-      const response = await axios.post('/translate', {
-        text: textToTranslate,
-        target_language: targetLanguage.name
-      })
-
-      if (response.data.success) {
+    makeApiCall(
+      '/api/translate',
+      {
+        text: results.ocrText,
+        target_language: targetLanguage.name,
+        // Also send the detected source language for better accuracy
+        source_language_code: results.detectedLanguage?.code || 'auto'
+      },
+      (data) => {
         setResults(prev => ({
           ...prev,
-          translatedText: response.data.translated_text
+          translatedText: data.translated_text
         }))
-        toast.success(`Text translated to ${targetLanguage.name}`)
-      } else {
-        throw new Error(response.data.error || 'Translation failed')
-      }
-    } catch (error) {
-      console.error('Translation error:', error)
-      setError(`Translation failed: ${error.message}`)
-      toast.error('Failed to translate text')
-    } finally {
-      setLoading(false)
-      setCurrentOperation('')
-    }
+      },
+      `Translating to ${targetLanguage.name}`
+    )
   }
 
   const handleCleanup = async () => {

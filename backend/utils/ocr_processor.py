@@ -107,73 +107,377 @@ except OSError:
 
 def get_tesseract_lang_code(iso_code):
     """Convert ISO 639-1 (2-letter) to ISO 639-2 (3-letter) for Tesseract."""
+    # Enhanced mapping for better language support including Hindi/Devanagari
+    enhanced_mapping = {
+        # Chinese variants
+        'zh-cn': 'chi_sim',
+        'zh-tw': 'chi_tra',
+        'zh': 'chi_sim',  # Default Chinese to simplified
+        
+        # Indian languages
+        'hi': 'hin',      # Hindi - Devanagari script
+        'sa': 'san',      # Sanskrit - Devanagari script
+        'mr': 'mar',      # Marathi - Devanagari script
+        'ne': 'nep',      # Nepali - Devanagari script
+        'bn': 'ben',      # Bengali
+        'gu': 'guj',      # Gujarati
+        'kn': 'kan',      # Kannada
+        'ml': 'mal',      # Malayalam
+        'or': 'ori',      # Odia
+        'pa': 'pan',      # Punjabi
+        'ta': 'tam',      # Tamil
+        'te': 'tel',      # Telugu
+        'ur': 'urd',      # Urdu
+        
+        # Other Asian languages
+        'ja': 'jpn',      # Japanese
+        'ko': 'kor',      # Korean
+        'th': 'tha',      # Thai
+        'vi': 'vie',      # Vietnamese
+        
+        # Middle Eastern
+        'ar': 'ara',      # Arabic
+        'fa': 'fas',      # Persian/Farsi
+        'he': 'heb',      # Hebrew
+        
+        # European
+        'en': 'eng',      # English
+        'es': 'spa',      # Spanish
+        'fr': 'fra',      # French
+        'de': 'deu',      # German
+        'it': 'ita',      # Italian
+        'pt': 'por',      # Portuguese
+        'ru': 'rus',      # Russian
+        'pl': 'pol',      # Polish
+        'nl': 'nld',      # Dutch
+        'sv': 'swe',      # Swedish
+        'no': 'nor',      # Norwegian
+        'da': 'dan',      # Danish
+        'fi': 'fin',      # Finnish
+        'tr': 'tur',      # Turkish
+        'el': 'ell',      # Greek
+        'bg': 'bul',      # Bulgarian
+        'cs': 'ces',      # Czech
+        'sk': 'slk',      # Slovak
+        'hr': 'hrv',      # Croatian
+        'sr': 'srp',      # Serbian
+        'sl': 'slv',      # Slovenian
+        'et': 'est',      # Estonian
+        'lv': 'lav',      # Latvian
+        'lt': 'lit',      # Lithuanian
+        'hu': 'hun',      # Hungarian
+        'ro': 'ron',      # Romanian
+        'uk': 'ukr',      # Ukrainian
+    }
+    
+    # Check enhanced mapping first
+    if iso_code in enhanced_mapping:
+        return enhanced_mapping[iso_code]
+    
+    # Try pycountry as fallback
     try:
         lang = pycountry.languages.get(alpha_2=iso_code)
-        return lang.alpha_3
+        if lang and hasattr(lang, 'alpha_3'):
+            return lang.alpha_3
     except (AttributeError, KeyError):
-        # Fallback for common languages not in pycountry's main list
-        # or for special cases.
-        mapping = {
-            'zh-cn': 'chi_sim',
-            'zh-tw': 'chi_tra',
-            'he': 'heb',
-            'ja': 'jpn',
-            'ko': 'kor',
-            'en': 'eng'
-        }
-        return mapping.get(iso_code, 'eng') # Default to English
+        pass
+    
+    # Default to English if no mapping found
+    return 'eng'
 
 def perform_ocr_with_lang_detect(image_path_or_obj):
     """
-    Performs OCR on an image, automatically detecting the language.
-    Returns a dictionary with text, language, and any warnings.
+    Performs OCR on an image, attempting to gracefully handle multiple languages,
+    and translating to English if needed.
     """
     result = {
         'text': '',
         'detected_lang_name': 'English',
-        'detected_lang_code': 'eng',
+        'detected_lang_code': 'en',
+        'original_text': '',
+        'was_translated': False,
         'warning': None
     }
-    
+
     try:
-        # 1. Initial OCR pass with default settings (English) to get some text
-        initial_text = pytesseract.image_to_string(image_path_or_obj, lang='eng')
+        # --- NEW LOGIC ---
+        # 1. Perform a dual-language OCR pass with Tesseract first
+        # This is surprisingly effective as Tesseract can handle scripts simultaneously.
+        try:
+            # Use English and Hindi packs together. Tesseract will pick the best fit.
+            tesseract_dual_text = pytesseract.image_to_string(image_path_or_obj, lang='eng+hin')
+        except pytesseract.TesseractError as e:
+            # Handle cases where language packs might be missing
+            print(f"Dual-language OCR failed, falling back to English. Error: {e}")
+            tesseract_dual_text = pytesseract.image_to_string(image_path_or_obj, lang='eng')
+
+        # 2. Use EasyOCR for a potentially better Hindi/mixed-language result.
+        easyocr_text = None
+        if EASYOCR_SUPPORT:
+            try:
+                # We use both 'hi' and 'en' to support mixed-language documents.
+                easyocr_text = extract_text_with_easyocr(image_path_or_obj, detected_language='hi')
+            except Exception as e:
+                print(f"EasyOCR extraction failed during detection: {e}")
         
-        if not initial_text.strip():
+        # 3. Choose the best OCR result.
+        # We check for Devanagari characters to determine if it's likely Hindi.
+        devanagari_chars_regex = re.compile(r'[\u0900-\u097F]')
+        
+        final_ocr_text = tesseract_dual_text # Default to Tesseract's result
+        iso_code = 'en' # Default to English
+
+        # Check if EasyOCR provided a better result for Hindi
+        if easyocr_text and devanagari_chars_regex.search(easyocr_text):
+            # If EasyOCR text has more content and contains Hindi, prefer it.
+            if len(easyocr_text) > len(tesseract_dual_text):
+                 final_ocr_text = easyocr_text
+                 iso_code = 'hi'
+
+        # Check Tesseract's result if we haven't already decided on Hindi
+        elif devanagari_chars_regex.search(tesseract_dual_text):
+            iso_code = 'hi'
+        
+        # If we think it's Hindi, try to get a better name for it.
+        if iso_code == 'hi':
+            result['detected_lang_name'] = 'Hindi'
+            result['detected_lang_code'] = 'hi'
+        else:
+            # If no Devanagari, we can try to detect other languages.
+            try:
+                iso_code = detect(final_ocr_text[:2000]) if final_ocr_text else 'en'
+                lang_obj = pycountry.languages.get(alpha_2=iso_code)
+                result['detected_lang_name'] = lang_obj.name if lang_obj else iso_code.upper()
+                result['detected_lang_code'] = iso_code
+            except Exception:
+                # Fallback to English if detection fails
+                result['detected_lang_name'] = 'English (assumed)'
+                result['detected_lang_code'] = 'en'
+                iso_code = 'en'
+        
+        if not final_ocr_text.strip():
             result['warning'] = "No text detected in the document."
             return result
+            
+        result['original_text'] = final_ocr_text
 
-        # 2. Detect language from the initial text
-        try:
-            # Use a sample of the text for detection to improve speed and accuracy
-            sample_text = initial_text[:2000]
-            iso_code = detect(sample_text)
-            tess_code = get_tesseract_lang_code(iso_code)
-            
-            lang_name = pycountry.languages.get(alpha_2=iso_code).name
-            result['detected_lang_name'] = lang_name
-            result['detected_lang_code'] = tess_code
-            
-            # 3. If language is not English, re-run OCR with the detected language
-            if tess_code != 'eng':
-                print(f"Language detected: {lang_name} ({tess_code}). Re-running OCR...")
-                final_text = pytesseract.image_to_string(image_path_or_obj, lang=tess_code)
-                result['text'] = final_text
-            else:
-                result['text'] = initial_text
+        # 4. SET FINAL TEXT (NO AUTO-TRANSLATION)
+        # The extracted text is the original text. Translation will be a separate user action.
+        result['text'] = final_ocr_text
+
+        # Update warning if language was not English, to inform the user.
+        if iso_code.lower() not in ['en', 'eng']:
+            result['warning'] = f"Document processed in its original language ({result['detected_lang_name']}). Use the 'Translate' button to translate it."
         
-        except LangDetectException:
-            result['text'] = initial_text
-            result['warning'] = "Language could not be reliably detected. Defaulting to English."
-        except Exception as lang_e:
-            result['text'] = initial_text
-            result['warning'] = f"An error occurred during language detection: {lang_e}. Defaulting to English."
+        return result
 
-    except Exception as ocr_e:
-        result['text'] = f"Error during OCR processing: {ocr_e}"
-        result['warning'] = "OCR failed."
+    except Exception as e:
+        print(f"OCR with language detection failed: {e}")
+        result['text'] = f"Error: OCR processing failed - {str(e)}"
+        return result
 
-    return result
+def auto_translate_to_english(text, source_language_code):
+    """
+    Automatically translate text to English using multiple translation services.
+    Tries Hugging Face API first, then other services.
+    """
+    try:
+        # Method 1: Try Hugging Face Translation API (if available)
+        translated = translate_with_huggingface(text, source_language_code, 'en')
+        if translated and translated != text:
+            return translated
+    except Exception as e:
+        print(f"Hugging Face translation failed: {e}")
+    
+    try:
+        # Method 2: Try MyMemory API
+        translated = translate_with_mymemory(text, source_language_code, 'en')
+        if translated and translated != text:
+            return translated
+    except Exception as e:
+        print(f"MyMemory translation failed: {e}")
+    
+    try:
+        # Method 3: Try Google Translate (if available)
+        translated = translate_with_googletrans(text, source_language_code, 'en')
+        if translated and translated != text:
+            return translated
+    except Exception as e:
+        print(f"Google Translate failed: {e}")
+    
+    return text  # Return original if all translation methods fail
+
+def translate_with_huggingface(text, source_lang, target_lang='en'):
+    """
+    Translate text using Hugging Face Inference API
+    """
+    try:
+        import requests
+        import os
+        
+        # Get Hugging Face API token from environment
+        hf_token = os.getenv('HUGGINGFACE_API_TOKEN')
+        if not hf_token:
+            print("Hugging Face API token not found in environment variables")
+            return {'success': False, 'translated_text': text}
+        
+        # Language mapping for Hugging Face models
+        lang_mapping = {
+            'hi': 'hi',  # Hindi
+            'es': 'es',  # Spanish  
+            'fr': 'fr',  # French
+            'de': 'de',  # German
+            'it': 'it',  # Italian
+            'pt': 'pt',  # Portuguese
+            'ru': 'ru',  # Russian
+            'ja': 'ja',  # Japanese
+            'ko': 'ko',  # Korean
+            'zh': 'zh',  # Chinese
+            'ar': 'ar',  # Arabic
+        }
+        
+        source_lang_mapped = lang_mapping.get(source_lang, source_lang)
+        
+        # Use Helsinki-NLP translation models (very good quality)
+        model_name = f"Helsinki-NLP/opus-mt-{source_lang_mapped}-en"
+        
+        headers = {
+            "Authorization": f"Bearer {hf_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Split text into chunks for better processing
+        chunks = split_text_for_translation(text, max_length=500)
+        translated_chunks = []
+        
+        for chunk in chunks:
+            if not chunk.strip():
+                continue
+                
+            payload = {
+                "inputs": chunk,
+                "options": {"wait_for_model": True}
+            }
+            
+            response = requests.post(
+                f"https://api-inference.huggingface.co/models/{model_name}",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    translated_text = result[0].get('translation_text', chunk)
+                    translated_chunks.append(translated_text)
+                else:
+                    # In case of unexpected success response, append original
+                    translated_chunks.append(chunk)
+            else:
+                print(f"Hugging Face API error: {response.status_code}")
+                # On error, we don't have a valid translation for this chunk
+                return {'success': False, 'translated_text': text}
+                
+        return {'success': True, 'translated_text': ' '.join(translated_chunks)}
+        
+    except Exception as e:
+        print(f"Hugging Face translation error: {e}")
+        return {'success': False, 'translated_text': text}
+
+def translate_with_mymemory(text, source_lang, target_lang='en'):
+    """
+    Translate text using MyMemory API (free service)
+    """
+    try:
+        import requests
+        import urllib.parse
+        
+        chunks = split_text_for_translation(text, max_length=500)
+        translated_chunks = []
+        
+        for chunk in chunks:
+            if not chunk.strip():
+                continue
+                
+            encoded_text = urllib.parse.quote(chunk)
+            url = f"https://api.mymemory.translated.net/get?q={encoded_text}&langpair={source_lang}|{target_lang}"
+            
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('responseStatus') == 200:
+                    translated_text = data['responseData']['translatedText']
+                    translated_chunks.append(translated_text)
+                else:
+                    # MyMemory API reported an error
+                    return {'success': False, 'translated_text': text}
+            else:
+                # HTTP error
+                return {'success': False, 'translated_text': text}
+                
+        return {'success': True, 'translated_text': ' '.join(translated_chunks)}
+        
+    except Exception as e:
+        print(f"MyMemory translation error: {e}")
+        return {'success': False, 'translated_text': text}
+
+def translate_with_googletrans(text, source_lang, target_lang='en'):
+    """
+    Translate text using googletrans library (if installed)
+    """
+    try:
+        from googletrans import Translator
+        
+        translator = Translator()
+        chunks = split_text_for_translation(text, max_length=5000)  # Google allows longer text
+        translated_chunks = []
+        
+        for chunk in chunks:
+            if not chunk.strip():
+                continue
+                
+            result = translator.translate(chunk, src=source_lang, dest=target_lang)
+            translated_chunks.append(result.text)
+            
+        return {'success': True, 'translated_text': ' '.join(translated_chunks)}
+        
+    except ImportError:
+        print("googletrans library not installed. Install with: pip install googletrans==4.0.0-rc1")
+        return {'success': False, 'translated_text': text}
+    except Exception as e:
+        print(f"Google Translate error: {e}")
+        return {'success': False, 'translated_text': text}
+
+def split_text_for_translation(text, max_length=500):
+    """
+    Split text into smaller chunks for translation APIs
+    """
+    if len(text) <= max_length:
+        return [text]
+    
+    # Split by sentences first
+    import re
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    for sentence in sentences:
+        if current_length + len(sentence) > max_length and current_chunk:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = [sentence]
+            current_length = len(sentence)
+        else:
+            current_chunk.append(sentence)
+            current_length += len(sentence)
+    
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+    
+    return chunks
 
 def install_poppler_guide():
     """Return installation guide for Poppler on Windows"""
@@ -393,22 +697,64 @@ def detect_file_encoding(filepath):
     except:
         return 'utf-8'
 
-def extract_text_with_easyocr(filepath):
-    """Alternative OCR using EasyOCR for better multilingual support"""
+def extract_text_with_easyocr(filepath, detected_language='en'):
+    """Alternative OCR using EasyOCR for better multilingual support, especially for Hindi/Devanagari"""
     if not EASYOCR_SUPPORT:
         return None
     
     try:
-        reader = easyocr.Reader(['en'])  # Can add more languages as needed
+        # Configure languages based on detected language
+        # EasyOCR uses different language codes than Tesseract
+        easyocr_lang_mapping = {
+            'hi': ['hi', 'en'],    # Hindi + English for mixed content
+            'hin': ['hi', 'en'],   # Tesseract code to EasyOCR
+            'bn': ['bn', 'en'],    # Bengali
+            'ta': ['ta', 'en'],    # Tamil
+            'te': ['te', 'en'],    # Telugu
+            'kn': ['kn', 'en'],    # Kannada
+            'ml': ['ml', 'en'],    # Malayalam
+            'gu': ['gu', 'en'],    # Gujarati
+            'or': ['or', 'en'],    # Odia
+            'pa': ['pa', 'en'],    # Punjabi
+            'ur': ['ur', 'en'],    # Urdu
+            'ar': ['ar', 'en'],    # Arabic
+            'fa': ['fa', 'en'],    # Persian
+            'zh': ['ch_sim', 'en'], # Chinese Simplified
+            'ja': ['ja', 'en'],    # Japanese
+            'ko': ['ko', 'en'],    # Korean
+            'th': ['th', 'en'],    # Thai
+            'vi': ['vi', 'en'],    # Vietnamese
+            'ru': ['ru', 'en'],    # Russian
+            'fr': ['fr', 'en'],    # French
+            'de': ['de', 'en'],    # German
+            'es': ['es', 'en'],    # Spanish
+            'pt': ['pt', 'en'],    # Portuguese
+            'it': ['it', 'en'],    # Italian
+        }
+        
+        # Get appropriate language list for EasyOCR
+        languages = easyocr_lang_mapping.get(detected_language, ['en'])
+        
+        print(f"Using EasyOCR with languages: {languages}")
+        reader = easyocr.Reader(languages)
         result = reader.readtext(filepath)
         
-        # Extract text from results
+        # Extract text from results with lower confidence threshold for non-Latin scripts
+        confidence_threshold = 0.3 if detected_language in ['hi', 'hin', 'bn', 'ta', 'te', 'kn', 'ml', 'gu', 'or', 'pa', 'ur', 'ar', 'fa'] else 0.5
+        
         text_parts = []
         for (bbox, text, confidence) in result:
-            if confidence > 0.5:  # Only include high-confidence text
-                text_parts.append(text)
+            if confidence > confidence_threshold:
+                text_parts.append(text.strip())
         
-        return "\n".join(text_parts) if text_parts else None
+        if text_parts:
+            # For languages like Hindi, join words more naturally
+            if detected_language in ['hi', 'hin']:
+                return " ".join(text_parts)  # Join with spaces for better readability
+            else:
+                return "\n".join(text_parts)
+        else:
+            return None
     
     except Exception as e:
         print(f"EasyOCR failed: {e}")
@@ -527,23 +873,56 @@ def process_pdf_fallback(filepath):
         return f"Error processing PDF: {e}"
 
 def process_ocr(filepath, filename):
-    """Process OCR for various document types, now with language detection."""
+    """Process OCR for various document types with automatic translation to English."""
     file_extension = os.path.splitext(filename)[1].lower()
     
     # This dictionary will hold our final results
     ocr_result = {
         'text': '',
-        'detected_lang_name': 'N/A',
-        'detected_lang_code': 'N/A',
+        'detected_lang_name': 'English',
+        'detected_lang_code': 'en',
+        'original_text': '',
+        'was_translated': False,
         'warning': None
     }
 
-    # Helper to update results
+    # Helper to update results with auto-translation support
     def update_result(data, is_ocr=False):
         if is_ocr:
+            # For OCR results, the auto-translation is already handled
             ocr_result.update(data)
         else:
+            # For non-OCR text, check if we need to translate
             ocr_result['text'] = data
+            ocr_result['original_text'] = data
+            
+            # Try to detect language and auto-translate if not English
+            if data and not data.startswith("Error:"):
+                try:
+                    from langdetect import detect
+                    detected_lang = detect(data[:2000])  # Use first 2000 chars for detection
+                    
+                    if detected_lang.lower() not in ['en', 'eng']:
+                        print(f"🔄 Auto-translating {detected_lang} document to English...")
+                        translated = auto_translate_to_english(data, detected_lang)
+                        
+                        if translated and translated != data:
+                            ocr_result['text'] = translated
+                            ocr_result['was_translated'] = True
+                            ocr_result['detected_lang_code'] = detected_lang
+                            try:
+                                lang_obj = pycountry.languages.get(alpha_2=detected_lang)
+                                ocr_result['detected_lang_name'] = lang_obj.name if lang_obj else detected_lang.upper()
+                            except:
+                                ocr_result['detected_lang_name'] = detected_lang.upper()
+                            ocr_result['warning'] = f"Document was automatically translated from {ocr_result['detected_lang_name']} to English."
+                            print(f"✅ Successfully translated document to English")
+                        else:
+                            ocr_result['warning'] = f"Auto-translation from {detected_lang} failed. Showing original text."
+                            
+                except Exception as e:
+                    print(f"Language detection/translation failed: {e}")
+                    # Continue with original text
 
     # PDF Files
     if file_extension == '.pdf':
@@ -557,30 +936,42 @@ def process_ocr(filepath, filename):
             update_result(fallback_text)
         else:
             try:
+                print("📄 Processing PDF with auto-translation to English...")
                 images = convert_from_path(filepath, dpi=300)
                 all_texts = []
+                original_texts = []
                 detected_langs = []
+                was_any_translated = False
                 
                 for i, image in enumerate(images):
                     page_result = perform_ocr_with_lang_detect(image)
                     all_texts.append(f"--- Page {i+1} ---\\n{page_result['text'].strip()}")
+                    original_texts.append(f"--- Page {i+1} ---\\n{page_result.get('original_text', page_result['text']).strip()}")
+                    
                     if page_result['detected_lang_code'] not in detected_langs:
                         detected_langs.append(page_result['detected_lang_code'])
+                    
+                    if page_result.get('was_translated', False):
+                        was_any_translated = True
                 
                 # Consolidate results
                 update_result({
                     'text': "\\n\\n".join(all_texts),
+                    'original_text': "\\n\\n".join(original_texts),
                     'detected_lang_name': ', '.join(lang.capitalize() for lang in detected_langs),
-                    'detected_lang_code': ','.join(detected_langs)
+                    'detected_lang_code': ','.join(detected_langs),
+                    'was_translated': was_any_translated,
+                    'warning': "Multi-page PDF was automatically processed and translated to English." if was_any_translated else None
                 }, is_ocr=True)
 
             except Exception as e:
                 print(f"Error processing PDF with Tesseract/Poppler: {e}")
                 update_result(f"Error: Failed to extract text from PDF. {e}\\n\\n{install_poppler_guide()}")
 
-    # Image Files (OCR Processing)
+    # Image Files (OCR Processing with auto-translation)
     elif file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.tif']:
         try:
+            print(f"🖼️  Processing image with auto-translation to English: {filename}")
             update_result(perform_ocr_with_lang_detect(filepath), is_ocr=True)
             if not ocr_result['text'].strip() and not ocr_result['warning']:
                 ocr_result['warning'] = "No text detected in image. The image may not contain readable text."

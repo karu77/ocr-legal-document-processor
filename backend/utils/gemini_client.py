@@ -119,21 +119,21 @@ class GeminiClient:
             
         try:
             prompt = f"""
-            Clean up and format the following text while preserving its meaning and structure:
+            Clean up and format the following text, which may be in any language. Preserve its original language, meaning, and structure.
             ---
             {text}
             ---
             Instructions:
-            1. Fix spelling and grammar errors
-            2. Improve formatting with proper paragraphs and spacing
-            3. Preserve document structure (headings, sections, lists)
-            4. Maintain original text organization
-            5. Keep all important information intact
-            6. Remove OCR artifacts and noise
-            7. Fix line breaks and word wrapping
-            8. Ensure consistent spacing and indentation
-            9. Maintain professional formatting
-            10. Return the text in a clean, well-structured format
+            1. Fix spelling and grammar errors appropriate for the source language.
+            2. Improve formatting with proper paragraphs and spacing.
+            3. Preserve document structure (headings, sections, lists).
+            4. Maintain original text organization.
+            5. Keep all important information intact.
+            6. Remove OCR artifacts and noise.
+            7. Fix line breaks and word wrapping.
+            8. Ensure consistent spacing and indentation.
+            9. Maintain professional formatting.
+            10. Return the text in its original language, in a clean, well-structured format.
 
             Format the output with:
             - Clear paragraph breaks
@@ -168,33 +168,34 @@ class GeminiClient:
             
         try:
             prompt = f"""
-            Provide a comprehensive summary of the following text, focusing on key legal points and important details:
+            Provide a comprehensive summary of the following text, focusing on key legal points and important details. The summary and all headings MUST be in the same language as the original text.
             ---
             {text}
             ---
             Instructions:
-            1. Create an executive summary in 2-3 paragraphs
-            2. Focus on key legal points, obligations, and requirements
-            3. Highlight important dates, deadlines, and conditions
-            4. Include critical financial or numerical information
-            5. Mention all involved parties and their roles
-            6. Summarize main agreements or decisions
-            7. Note any special conditions or exceptions
-            8. Maintain formal legal language where appropriate
-            9. Structure the summary with clear sections
-            10. End with key takeaways or action items
+            1. Create an executive summary in 2-3 paragraphs.
+            2. Focus on key legal points, obligations, and requirements.
+            3. Highlight important dates, deadlines, and conditions.
+            4. Include critical financial or numerical information.
+            5. Mention all involved parties and their roles.
+            6. Summarize main agreements or decisions.
+            7. Note any special conditions or exceptions.
+            8. Maintain a formal tone appropriate for the source text.
+            9. Structure the summary with clear sections.
+            10. End with key takeaways or action items.
 
-            Format the output as:
-            EXECUTIVE SUMMARY
+            Format the output using the following structure, with headings translated into the language of the source text:
+
+            Executive Summary
             [2-3 paragraphs of main summary]
 
-            KEY POINTS
+            Key Points
             • [Bullet points of critical information]
 
-            PARTIES & ROLES
+            Parties & Roles
             • [List of involved parties and their responsibilities]
 
-            ACTION ITEMS
+            Action Items
             • [List of required actions or next steps]
             """
             
@@ -217,33 +218,34 @@ class GeminiClient:
             
         try:
             prompt = f"""
-            Extract and organize the key points from the following text into clear, concise bullet points:
+            Extract and organize the key points from the following text into clear, concise bullet points. The bullet points and all headings MUST be in the same language as the original text.
             ---
             {text}
             ---
             Instructions:
-            1. Identify the most important information and key facts
-            2. Create clear, actionable bullet points
-            3. Group related information together
-            4. Use professional language
-            5. Include specific details like dates, amounts, names
-            6. Organize by priority or logical flow
-            7. Keep each bullet point concise but complete
-            8. Use consistent formatting
-            9. Focus on actionable items and key decisions
-            10. Highlight critical deadlines or requirements
+            1. Identify the most important information and key facts.
+            2. Create clear, actionable bullet points.
+            3. Group related information together.
+            4. Use professional language.
+            5. Include specific details like dates, amounts, and names.
+            6. Organize by priority or logical flow.
+            7. Keep each bullet point concise but complete.
+            8. Use consistent formatting.
+            9. Focus on actionable items and key decisions.
+            10. Highlight critical deadlines or requirements.
 
-            Format as:
-            KEY POINTS
+            Format the output using the following structure, with headings translated into the language of the source text:
+
+            Key Points
             • [Most important point]
             • [Second most important point]
             • [Continue with remaining points]
 
-            DETAILS & SPECIFICATIONS
+            Details & Specifications
             • [Specific details, numbers, dates]
             • [Technical requirements or conditions]
 
-            ACTION ITEMS
+            Action Items
             • [Required actions or next steps]
             • [Deadlines and responsibilities]
             """
@@ -256,39 +258,29 @@ class GeminiClient:
             
         except Exception as e:
             print(f"Error in generate_bullet_points: {e}")
-            # Return basic bullet points if AI fails
-            sentences = text.split('.')[:7]
-            return '\n'.join([f"• {sentence.strip()}" for sentence in sentences if sentence.strip()])
+            # Return a basic extraction if AI fails
+            sentences = text.split('.')[:5]
+            return '\n'.join([f"• {s.strip()}" for s in sentences if s.strip()])
 
     def translate_text(self, text: str, target_language: str = "English") -> str:
-        """Translate text to the target language"""
-        if not text:
+        """Translate text to the specified target language"""
+        if not text or not target_language:
             return ""
             
         try:
             prompt = f"""
-            Translate the following text to {target_language}. Maintain the original formatting, structure, and professional tone:
+            Translate the following text to {target_language}. Maintain the original formatting, structure, and professional tone. The source text could be in any language; auto-detect it if necessary.
             ---
             {text}
             ---
-            Instructions:
-            1. Preserve document structure and formatting
-            2. Maintain professional legal language where appropriate
-            3. Keep technical terms accurate
-            4. Preserve any special formatting (lists, headers, etc.)
-            5. Ensure the translation is natural and fluent in {target_language}
-            6. Maintain the original meaning and context
-            7. Keep proper nouns and specific legal terms when appropriate
-            8. Preserve any numbered or lettered lists
-            9. Keep paragraph breaks and structure
-            10. Ensure cultural appropriateness for {target_language}
+            The output should ONLY be the translated text.
             """
             
-            translated = self._make_request(prompt)
-            if not translated:
+            translated_text = self._make_request(prompt)
+            if not translated_text:
                 return f"Could not translate to {target_language}."
                 
-            return translated
+            return translated_text
             
         except Exception as e:
             print(f"Error in translate_text: {e}")

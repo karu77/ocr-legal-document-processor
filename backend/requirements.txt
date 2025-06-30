@@ -27,7 +27,7 @@ striprtf>=0.0.26
 
 # Excel and Spreadsheet Support
 openpyxl>=3.1.0
-xlrd>=2.0.1
+xlrd==1.2.0
 pandas>=2.0.0
 
 # PowerPoint Support
@@ -36,12 +36,13 @@ python-pptx>=0.6.21
 # OpenDocument Support
 odfpy>=1.4.1
 
-# HTML/XML Processing
-beautifulsoup4>=4.12.0
+# Web Scraping / HTML Parsing
+beautifulsoup4==4.8.2
 lxml>=4.9.0
+textract>=1.6.5
 
 # Text Processing
-chardet>=5.0.0
+chardet~=3.0.4
 
 # Translation
 translate>=3.6.1
@@ -54,4 +55,13 @@ langdetect>=1.0.9
 pycountry>=22.3.5
 
 # Additional format support
-easyocr>=1.7.0 # Alternative OCR engine 
+easyocr>=1.7.0 # Alternative OCR engine
+
+# Auto-translation to English support
+googletrans==4.0.0-rc1
+
+# Testing
+pytest
+pytest-flask
+pytest-mock
+requests 

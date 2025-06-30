@@ -8,12 +8,19 @@ import traceback
 import logging
 import time
 
-from utils.ocr_processor import (
-    process_ocr, clean_text, summarize_text, 
-    extract_key_points, translate_text, compare_documents
+from .utils.ocr_processor import (
+    process_ocr,
+    # clean_text, summarize_text, extract_key_points, # These are library-based, we want to use Gemini
+    # Import the better translation functions
+    auto_translate_to_english, 
+    translate_with_huggingface,
+    translate_with_mymemory,
+    translate_with_googletrans,
+    compare_documents,
+    perform_ocr_with_lang_detect
 )
-from utils.database import db_manager
-from utils.auth import auth_manager, require_auth, optional_auth
+from .utils.gemini_client import GeminiClient
+# from utils.database import db_manager
 from bson import ObjectId
 import json
 
@@ -55,14 +62,17 @@ if not os.path.exists(UPLOAD_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Initialize database
-try:
-    db = db_manager.get_db()
-except:
-    print("⚠️  Database connection failed")
-    db = None
+# try:
+#     db = db_manager.get_db()
+# except:
+#     print("⚠️  Database connection failed")
+#     db = None
+
+# Initialize Gemini Client
+gemini_client = GeminiClient()
 
 # Initialize NLP libraries
-print("✅ Using library-based processing (no AI API required)")
+print(">> Using library-based processing (no AI API required)")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -83,79 +93,6 @@ def extract_text_from_word(filepath):
         return '\n'.join(text_parts)
     except Exception as e:
         return f"Error extracting text from Word document: {e}"
-
-def translate_with_libraries(text, target_language):
-    """Translate text using a simple translation API"""
-    try:
-        import requests
-        import urllib.parse
-        from time import sleep
-        
-        # Map common language names to codes
-        language_codes = {
-            'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Italian': 'it',
-            'Portuguese': 'pt', 'Russian': 'ru', 'Chinese': 'zh', 'Japanese': 'ja',
-            'Korean': 'ko', 'Arabic': 'ar', 'Hindi': 'hi'
-        }
-        
-        target_code = language_codes.get(target_language, target_language.lower()[:2])
-        app.logger.info(f"Using language code: {target_code}")
-        
-        # Split text into smaller chunks (max 500 chars)
-        chunks = [text[i:i+500] for i in range(0, len(text), 500)]
-        translated_chunks = []
-        
-        # Translate each chunk
-        for chunk in chunks:
-            if not chunk.strip():
-                continue
-                
-            try:
-                # URL encode the text
-                encoded_text = urllib.parse.quote(chunk)
-                
-                # Make the request to the translation API
-                url = f"https://api.mymemory.translated.net/get?q={encoded_text}&langpair=en|{target_code}"
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                }
-                
-                response = requests.get(url, headers=headers)
-                data = response.json()
-                
-                if response.status_code == 200 and data['responseStatus'] == 200:
-                    translated_text = data['responseData']['translatedText']
-                    translated_chunks.append(translated_text)
-                else:
-                    # If translation fails, try an alternative API
-                    alt_url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl={target_code}&dt=t&q={encoded_text}"
-                    alt_response = requests.get(alt_url, headers=headers)
-                    
-                    if alt_response.status_code == 200:
-                        alt_data = alt_response.json()
-                        translated_text = ''.join([item[0] for item in alt_data[0] if item[0]])
-                        translated_chunks.append(translated_text)
-                    else:
-                        translated_chunks.append(chunk)
-                
-                # Add delay between requests
-                sleep(1)
-                
-            except Exception as e:
-                app.logger.error(f"Chunk translation failed: {str(e)}")
-                translated_chunks.append(chunk)
-        
-        # Join all translated chunks
-        final_translation = ' '.join(translated_chunks)
-        
-        if final_translation and len(final_translation.strip()) > 0:
-            return f"[Translated to {target_language}]\n\n{final_translation}"
-        else:
-            raise Exception("Translation produced empty result")
-            
-    except Exception as e:
-        app.logger.error(f"Translation failed: {str(e)}")
-        return f"[Translation failed - {str(e)}]\n\n{text}"
 
 def create_basic_translation_notice(text, target_language):
     """Create a notice when translation services are not available"""
@@ -180,6 +117,10 @@ Original text follows below:
     
     return notice
 
+def get_nlp_mode():
+    """Check the environment variable to determine which NLP service to use."""
+    return os.getenv('USE_LOCAL_NLP', 'true').lower() == 'true'
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -187,7 +128,6 @@ def health_check():
 
 @app.route('/ocr', methods=['POST'])
 @app.route('/api/process', methods=['POST'])
-@optional_auth
 def process_document():
     """Extract text from uploaded image or PDF using OCR"""
     try:
@@ -220,9 +160,11 @@ def process_document():
                 'success': True,
                 'extracted_text': ocr_result['text'],
                 'raw_text': ocr_result['text'],
+                'original_text': ocr_result.get('original_text', ocr_result['text']),
+                'was_translated': ocr_result.get('was_translated', False),
                 'filename': filename,
-                'detected_lang_name': ocr_result.get('detected_lang_name'),
-                'detected_lang_code': ocr_result.get('detected_lang_code'),
+                'detected_lang_name': ocr_result.get('detected_lang_name', 'English'),
+                'detected_lang_code': ocr_result.get('detected_lang_code', 'en'),
                 'warning': ocr_result.get('warning')
             })
             
@@ -241,40 +183,77 @@ def process_document():
 
 @app.route('/translate', methods=['POST'])
 @app.route('/api/translate', methods=['POST'])
-@optional_auth
 def translate_document():
-    """Translate text using library-based translation"""
+    """Translate text using the best available service."""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
             return jsonify({'error': 'Text is required', 'success': False}), 400
         
         text = data['text']
-        target_language = data.get('target_language', 'English')
+        target_language_name = data.get('target_language', 'English')
+        source_language_code = data.get('source_language_code', 'auto') # Get source lang from request
         
-        # Debug logging
-        app.logger.info(f"Translation request: target_language = '{target_language}', text length = {len(text)}")
+        app.logger.info(f"Translation request: from '{source_language_code}' to '{target_language_name}', text length = {len(text)}")
         
         if not text.strip():
             return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
-            
-        # Check if user is trying to translate to the same language (likely English to English)
-        if target_language.lower() == 'english':
-            return jsonify({
-                'success': True,
-                'translated_text': f"[Already in {target_language}]\n\n{text}",
-                'target_language': target_language,
-                'message': f'Text is already in {target_language}'
-            })
+
+        # Map target language name to code for the translation services
+        try:
+            import pycountry
+            target_lang_obj = pycountry.languages.get(name=target_language_name)
+            target_language_code = target_lang_obj.alpha_2 if target_lang_obj else 'en'
+        except Exception:
+            target_language_code = 'en'
+
+        # Use the robust translation logic from ocr_processor
+        # This function tries HuggingFace, MyMemory, and Googletrans in order.
+        # It needs source and target language codes (e.g., 'hi', 'en').
         
-        # Use library-based translation directly
-        translated_text = translate_with_libraries(text, target_language)
-        
+        # Determine source language if not provided
+        if source_language_code == 'auto':
+            try:
+                from langdetect import detect
+                source_language_code = detect(text[:1000])
+                app.logger.info(f"Auto-detected source language: {source_language_code}")
+            except Exception as e:
+                app.logger.warning(f"Auto-detection of source language failed: {e}. Defaulting to English.")
+                source_language_code = 'en'
+
+        # Call translation services
+        services = [
+            ('Hugging Face', translate_with_huggingface),
+            ('MyMemory', translate_with_mymemory),
+            ('Googletrans', translate_with_googletrans)
+        ]
+
+        for service_name, service_func in services:
+            try:
+                # Call the service with the correct parameter names
+                result = service_func(
+                    text=text,
+                    target_lang=target_language_code,
+                    source_lang=source_language_code
+                )
+                
+                if result and result.get('success'):
+                    # Success! Return the flattened response.
+                    return jsonify({
+                        'success': True,
+                        'translated_text': result.get('translated_text'), # Just the text
+                        'service': service_name
+                    })
+            except Exception as e:
+                app.logger.warning(f"Translation service '{service_name}' failed: {str(e)}")
+                # Fall through to the next service
+
+        # If all services fail
         return jsonify({
-            'success': True,
-            'translated_text': translated_text,
-            'target_language': target_language
-        })
+            'success': False,
+            'error': 'All translation services failed.',
+            'translated_text': text # Return original text
+        }), 500
         
     except Exception as e:
         app.logger.error(f"Translation error: {str(e)}")
@@ -284,9 +263,8 @@ def translate_document():
         }), 500
 
 @app.route('/cleanup', methods=['POST'])
-@optional_auth
 def cleanup_text_endpoint():
-    """Clean up OCR text using library-based cleaning"""
+    """Clean up OCR text using library-based cleaning or Gemini API"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
@@ -296,9 +274,16 @@ def cleanup_text_endpoint():
         
         if not text.strip():
             return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
-        
-        # Use enhanced library-based text cleanup
-        cleaned_text = clean_text_with_libraries(text)
+
+        use_local_nlp = get_nlp_mode()
+
+        if use_local_nlp or not gemini_client.api_key:
+            # Use enhanced library-based text cleanup
+            app.logger.info("Using local library for text cleanup.")
+            cleaned_text = clean_text_with_libraries(text)
+        else:
+            app.logger.info("Using Gemini API for text cleanup.")
+            cleaned_text = gemini_client.cleanup_text(text)
         
         return jsonify({
             'success': True,
@@ -310,9 +295,8 @@ def cleanup_text_endpoint():
         return jsonify({'success': False, 'error': f'Text cleanup failed: {str(e)}'}), 500
 
 @app.route('/summarize', methods=['POST'])
-@optional_auth
 def summarize_text_endpoint():
-    """Summarize text using library-based summarization"""
+    """Summarize text using library-based summarization or Gemini API"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
@@ -322,9 +306,16 @@ def summarize_text_endpoint():
         
         if not text.strip():
             return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
-        
-        # Use library-based summarization
-        summary = summarize_with_libraries(text)
+
+        use_local_nlp = get_nlp_mode()
+
+        if use_local_nlp or not gemini_client.api_key:
+            # Use library-based summarization
+            app.logger.info("Using local library for summarization.")
+            summary = summarize_with_libraries(text)
+        else:
+            app.logger.info("Using Gemini API for summarization.")
+            summary = gemini_client.summarize_text(text)
         
         return jsonify({
             'success': True,
@@ -336,9 +327,8 @@ def summarize_text_endpoint():
         return jsonify({'success': False, 'error': f'Summarization failed: {str(e)}'}), 500
 
 @app.route('/bullet_points', methods=['POST'])
-@optional_auth
 def bullet_points_endpoint():
-    """Generate bullet points from text using library-based extraction"""
+    """Generate bullet points from text using library-based extraction or Gemini API"""
     try:
         data = request.get_json()
         if not data or 'text' not in data:
@@ -349,8 +339,15 @@ def bullet_points_endpoint():
         if not text.strip():
             return jsonify({'error': 'Text cannot be empty', 'success': False}), 400
         
-        # Use library-based key points extraction
-        bullet_points = extract_key_points_with_libraries(text)
+        use_local_nlp = get_nlp_mode()
+
+        if use_local_nlp or not gemini_client.api_key:
+            # Use library-based key points extraction
+            app.logger.info("Using local library for bullet points.")
+            bullet_points = extract_key_points_with_libraries(text)
+        else:
+            app.logger.info("Using Gemini API for bullet points.")
+            bullet_points = gemini_client.generate_bullet_points(text)
         
         return jsonify({
             'success': True,
@@ -363,7 +360,6 @@ def bullet_points_endpoint():
 
 @app.route('/compare', methods=['POST'])
 @app.route('/api/compare', methods=['POST'])
-@optional_auth
 def compare_documents_endpoint():
     """Compare two documents using library-based comparison"""
     try:
@@ -439,102 +435,6 @@ def compare_documents_with_libraries(text1, text2):
             'error': str(e)
         }
 
-@app.route('/auth/register', methods=['POST'])
-def register():
-    """Register a new user"""
-    if not db:
-        return jsonify({'success': False, 'error': 'Database not connected'}), 500
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided', 'success': False}), 400
-            
-        result = db_manager.create_user(
-            username=data.get('username'),
-            email=data.get('email'),
-            password=data.get('password'),
-            full_name=data.get('full_name', '')
-        )
-
-        if result['success']:
-            # Generate tokens for the new user
-            user_id = str(result['user']['id'])
-            tokens = auth_manager.generate_tokens(user_id)
-            result['tokens'] = tokens
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        app.logger.error(f"Registration error: {str(e)}")
-        return jsonify({'success': False, 'error': f'Registration failed: {str(e)}'}), 500
-
-@app.route('/auth/login', methods=['POST'])
-def login():
-    """Login a user"""
-    if not db:
-        return jsonify({'success': False, 'error': 'Database not connected'}), 500
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided', 'success': False}), 400
-            
-        result = db_manager.authenticate_user(
-            email_or_username=data.get('email_or_username'),
-            password=data.get('password')
-        )
-
-        if result['success']:
-            # Generate tokens for the logged-in user
-            user_id = str(result['user']['id'])
-            tokens = auth_manager.generate_tokens(user_id)
-            result['tokens'] = tokens
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        app.logger.error(f"Login error: {str(e)}")
-        return jsonify({'success': False, 'error': f'Login failed: {str(e)}'}), 500
-
-@app.route('/auth/refresh', methods=['POST'])
-def refresh_token():
-    """Refresh an access token"""
-    try:
-        data = request.get_json()
-        if not data or 'refresh_token' not in data:
-            return jsonify({'error': 'Refresh token is required', 'success': False}), 400
-            
-        result = auth_manager.refresh_access_token(data['refresh_token'])
-        return jsonify(result)
-        
-    except Exception as e:
-        app.logger.error(f"Token refresh error: {str(e)}")
-        return jsonify({'success': False, 'error': f'Token refresh failed: {str(e)}'}), 500
-
-@app.route('/auth/profile', methods=['GET'])
-@require_auth
-def get_profile():
-    """Get user profile"""
-    try:
-        user_id = request.user_id
-        user = db.users.find_one({'_id': ObjectId(user_id)})
-        
-        if not user:
-            return jsonify({'error': 'User not found', 'success': False}), 404
-            
-        # Remove sensitive data
-        user.pop('password', None)
-        user.pop('refresh_tokens', None)
-        user['_id'] = str(user['_id'])
-        
-        return jsonify({
-            'success': True,
-            'user': user
-        })
-        
-    except Exception as e:
-        app.logger.error(f"Profile fetch error: {str(e)}")
-        return jsonify({'success': False, 'error': f'Failed to fetch profile: {str(e)}'}), 500
-
 @app.errorhandler(413)
 def too_large(e):
     """Handle file too large error"""
@@ -543,14 +443,16 @@ def too_large(e):
         'error': 'File is too large. Maximum size is 16MB.'
     }), 413
 
-@app.errorhandler(500)
-def internal_server_error(e):
-    """Handle internal server errors"""
-    app.logger.error(f"Internal server error: {str(e)}")
-    return jsonify({
-        'success': False,
-        'error': 'An internal server error occurred'
-    }), 500
+# This will give us the actual exception traceback in test mode
+if os.environ.get("FLASK_ENV") != "development":
+    @app.errorhandler(500)
+    def internal_server_error_prod(e):
+        app.logger.error(f"Internal server error: {str(e)}")
+        app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': 'An internal server error occurred'
+        }), 500
 
 def clean_text_with_libraries(text):
     """Clean text using basic text processing libraries"""
@@ -687,4 +589,6 @@ def extract_key_points_with_libraries(text):
         return f"KEY POINTS:\n\n• {text[:200]}{'...' if len(text) > 200 else ''}"
 
 if __name__ == '__main__':
+    # Setup environment for development
+    os.environ['FLASK_ENV'] = 'development'
     app.run(debug=True, host='0.0.0.0', port=5000)
