@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import { Toaster, toast } from 'react-hot-toast'
 import FileUpload from './components/FileUpload'
 import LanguageSelector from './components/LanguageSelector'
@@ -26,38 +26,104 @@ import axios from 'axios'
 // Configure axios defaults
 axios.defaults.baseURL = 'http://localhost:5000'
 
-// Animation variants
+// Enhanced Animation variants
 const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    y: 0,
     transition: {
-      duration: 0.6,
-      staggerChildren: 0.1
+      duration: 0.8,
+      staggerChildren: 0.15,
+      delayChildren: 0.2
     }
   }
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5 }
+    scale: 1,
+    transition: { 
+      duration: 0.6,
+      ease: [0.25, 0.46, 0.45, 0.94]
+    }
   }
 }
 
 const cardVariants = {
-  hidden: { opacity: 0, scale: 0.95 },
+  hidden: { opacity: 0, scale: 0.9, rotateX: -10 },
   visible: {
     opacity: 1,
     scale: 1,
-    transition: { duration: 0.4 }
+    rotateX: 0,
+    transition: { 
+      duration: 0.7,
+      ease: [0.25, 0.46, 0.45, 0.94]
+    }
   },
   hover: {
     scale: 1.02,
-    transition: { duration: 0.2 }
+    y: -5,
+    rotateX: 5,
+    boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+    transition: { 
+      duration: 0.3,
+      ease: [0.25, 0.46, 0.45, 0.94]
+    }
+  }
+}
+
+const floatingVariants = {
+  initial: { y: 0, x: 0 },
+  animate: {
+    y: [-10, 10, -10],
+    x: [-5, 5, -5],
+    transition: {
+      duration: 6,
+      ease: "easeInOut",
+      repeat: Infinity,
+      repeatType: "reverse"
+    }
+  }
+}
+
+const navVariants = {
+  hidden: { y: -100, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.8,
+      ease: [0.25, 0.46, 0.45, 0.94]
+    }
+  }
+}
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -50, scale: 0.8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 1.2,
+      ease: [0.25, 0.46, 0.45, 0.94],
+      staggerChildren: 0.3
+    }
+  }
+}
+
+const titleVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.8,
+      ease: [0.25, 0.46, 0.45, 0.94]
+    }
   }
 }
 
@@ -146,6 +212,11 @@ function App() {
     const savedTheme = localStorage.getItem('theme')
     return savedTheme ? savedTheme : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   })
+
+  // Scroll animations
+  const { scrollY } = useScroll()
+  const yBg = useTransform(scrollY, [0, 1000], [0, -100])
+  const opacityBg = useTransform(scrollY, [0, 300], [1, 0.8])
 
   // Initialize authentication on app start
   useEffect(() => {
@@ -614,39 +685,173 @@ function App() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900 dark:from-gray-900 dark:to-gray-800 dark:text-gray-100 transition-colors duration-500 font-sans relative">
-      <Toaster position="top-right" reverseOrder={false} />
-      
-      {/* Top Navigation Bar */}
-      <motion.nav 
-        className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-[100]"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 text-gray-900 dark:text-gray-100 transition-colors duration-500 font-sans relative overflow-hidden">
+      {/* Enhanced Background Elements with Scroll Parallax */}
+      <motion.div 
+        className="fixed inset-0 overflow-hidden pointer-events-none"
+        style={{ y: yBg, opacity: opacityBg }}
       >
-        <div className="container mx-auto px-4 py-4">
+        {/* Primary floating blobs */}
+        <motion.div 
+          className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/30 to-purple-500/30 dark:from-blue-600/40 dark:to-purple-700/40 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          variants={floatingVariants}
+          initial="initial"
+          animate="animate"
+        />
+        <motion.div 
+          className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/30 to-pink-500/30 dark:from-purple-600/40 dark:to-pink-700/40 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          variants={floatingVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ delay: 2 }}
+        />
+        <motion.div 
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 dark:from-yellow-600/30 dark:to-orange-700/30 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          variants={floatingVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ delay: 4 }}
+        />
+        
+        {/* Secondary decorative elements */}
+        <motion.div 
+          className="absolute top-20 left-1/4 w-32 h-32 bg-gradient-to-br from-emerald-400/25 to-teal-500/25 dark:from-emerald-600/35 dark:to-teal-700/35 rounded-full filter blur-xl mix-blend-normal dark:mix-blend-screen"
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360],
+          }}
+          transition={{
+            duration: 8,
+            ease: "easeInOut",
+            repeat: Infinity,
+          }}
+        />
+        <motion.div 
+          className="absolute bottom-20 right-1/4 w-24 h-24 bg-gradient-to-br from-rose-400/30 to-pink-500/30 dark:from-rose-600/40 dark:to-pink-700/40 rounded-full filter blur-xl mix-blend-normal dark:mix-blend-screen"
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [360, 180, 0],
+          }}
+          transition={{
+            duration: 10,
+            ease: "easeInOut",
+            repeat: Infinity,
+          }}
+        />
+
+        {/* Additional floating elements for more dynamic background */}
+        <motion.div 
+          className="absolute top-1/4 right-1/3 w-40 h-40 bg-gradient-to-br from-indigo-400/20 to-cyan-500/20 dark:from-indigo-600/30 dark:to-cyan-700/30 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          animate={{
+            x: [0, 30, -30, 0],
+            y: [0, -20, 20, 0],
+            scale: [1, 1.1, 0.9, 1],
+          }}
+          transition={{
+            duration: 12,
+            ease: "easeInOut",
+            repeat: Infinity,
+          }}
+        />
+        <motion.div 
+          className="absolute bottom-1/3 left-1/3 w-28 h-28 bg-gradient-to-br from-violet-400/25 to-fuchsia-500/25 dark:from-violet-600/35 dark:to-fuchsia-700/35 rounded-full filter blur-xl mix-blend-normal dark:mix-blend-screen"
+          animate={{
+            x: [0, -25, 25, 0],
+            y: [0, 25, -25, 0],
+            rotate: [0, 120, 240, 360],
+          }}
+          transition={{
+            duration: 15,
+            ease: "easeInOut",
+            repeat: Infinity,
+          }}
+        />
+        <motion.div 
+          className="absolute top-3/4 right-1/6 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-red-500/30 dark:from-amber-600/40 dark:to-red-700/40 rounded-full filter blur-lg mix-blend-normal dark:mix-blend-screen"
+          animate={{
+            scale: [0.8, 1.3, 0.8],
+            rotate: [0, -180, -360],
+            opacity: [0.7, 1, 0.7],
+          }}
+          transition={{
+            duration: 9,
+            ease: "easeInOut",
+            repeat: Infinity,
+          }}
+        />
+      </motion.div>
+
+      <Toaster 
+        position="top-right" 
+        reverseOrder={false}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: theme === 'dark' ? '#374151' : '#f9fafb',
+            color: theme === 'dark' ? '#f9fafb' : '#374151',
+            borderRadius: '12px',
+            boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+          },
+        }}
+      />
+      
+      {/* Enhanced Top Navigation Bar */}
+      <motion.nav 
+        className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-[100] shadow-lg"
+        variants={navVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            {/* Enhanced Logo */}
+            <motion.div 
+              className="flex items-center space-x-3"
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.div 
+                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg"
+                whileHover={{ 
+                  scale: 1.1,
+                  rotate: 5,
+                  boxShadow: '0 15px 25px rgba(0,0,0,0.2)'
+                }}
+                transition={{ duration: 0.2 }}
+              >
+                <motion.div
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                >
                 <DocumentTextIcon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                </motion.div>
+              </motion.div>
+              <div className="hidden sm:block">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                   OCR Legal Processor
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   AI-Powered Document Processing
                 </p>
               </div>
+              <div className="sm:hidden">
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Legal AI
+                </h1>
             </div>
+            </motion.div>
 
-            {/* Right side controls */}
-            <div className="flex items-center space-x-4">
-              {/* User Profile or Login */}
+            {/* Enhanced Right side controls */}
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Enhanced User Profile or Login */}
               {user ? (
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
+                <motion.div 
+                  className="flex items-center space-x-3"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <div className="text-right hidden md:block">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {user.full_name || user.username}
                     </p>
@@ -654,72 +859,176 @@ function App() {
                       {user.email}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <motion.div 
+                    className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center md:hidden"
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <span className="text-white text-sm font-semibold">
+                      {(user.full_name || user.username)?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </motion.div>
+                  <div className="flex items-center space-x-1 sm:space-x-2">
                     <motion.button
                       onClick={() => {/* TODO: Add profile modal */}}
-                      className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      className="p-2 rounded-full bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors backdrop-blur-sm"
+                      whileHover={{ scale: 1.1, rotate: 15 }}
+                      whileTap={{ scale: 0.9 }}
                     >
-                      <Cog6ToothIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                      <Cog6ToothIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" />
                     </motion.button>
                     <motion.button
                       onClick={handleLogout}
-                      className="p-2 rounded-full bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      className="p-2 rounded-full bg-red-100/80 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 transition-colors backdrop-blur-sm"
+                      whileHover={{ scale: 1.1, rotate: -10 }}
+                      whileTap={{ scale: 0.9 }}
                     >
-                      <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-700 dark:text-red-300" />
+                      <ArrowRightOnRectangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-700 dark:text-red-300" />
                     </motion.button>
                   </div>
-                </div>
+                </motion.div>
               ) : (
                 <motion.button
                   onClick={openAuthModal}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center space-x-1 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 backdrop-blur-sm"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5 }}
                 >
-                  <UserIcon className="w-5 h-5" />
-                  <span className="font-medium">Sign In</span>
+                  <UserIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="font-medium text-sm sm:text-base">Sign In</span>
                 </motion.button>
               )}
 
-              {/* Theme Toggle */}
+              {/* Enhanced Theme Toggle */}
               <motion.button 
                 onClick={toggleTheme}
-                className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="p-2 rounded-full bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors backdrop-blur-sm"
+                whileHover={{ scale: 1.1, rotate: 15 }}
+                whileTap={{ scale: 0.9, rotate: -15 }}
+                initial={{ opacity: 0, rotate: 180 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <motion.div
+                  animate={{ rotate: theme === 'dark' ? 0 : 180 }}
+                  transition={{ duration: 0.3 }}
               >
                 {theme === 'dark' ? (
-                  <SunIcon className="h-5 w-5 text-yellow-400" />
+                    <SunIcon className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
                 ) : (
-                  <MoonIcon className="h-5 w-5 text-gray-700" />
+                    <MoonIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700" />
                 )}
+                </motion.div>
               </motion.button>
             </div>
           </div>
         </div>
       </motion.nav>
 
-      <div className="container mx-auto px-4 py-8 relative z-10">
+      {/* Enhanced Main Content with Better Responsive Design */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 relative z-10">
         <motion.header 
-          className="text-center mb-12"
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          className="text-center mb-12 sm:mb-16 lg:mb-20 relative"
+          variants={headerVariants}
+          initial="hidden"
+          animate="visible"
         >
-          <h1 className="text-5xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-            Legal Document AI Assistant
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300">
-            Streamline your legal document processing with OCR, translation, and AI-powered insights.
-          </p>
+          {/* Decorative gradient background */}
+          <div className="absolute inset-0 -top-4 -bottom-4 opacity-5 dark:opacity-10">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 blur-3xl transform rotate-1"></div>
+          </div>
+          
+          {/* Enhanced title with sophisticated gradient and effects */}
+          <motion.h1 
+            className="relative text-3xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black mb-6 sm:mb-8 leading-[0.9] tracking-tight"
+            variants={titleVariants}
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+              backgroundSize: '300% 300%',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              animation: 'gradient-shift 6s ease-in-out infinite',
+            }}
+          >
+            <motion.span
+              className="block"
+              initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              Legal Document
+            </motion.span>
+            <motion.span
+              className="block text-4xl sm:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl mt-2 sm:mt-3"
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              style={{
+                background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #f7dc6f, #bb6bd9)',
+                backgroundSize: '400% 400%',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                animation: 'gradient-wave 4s ease-in-out infinite',
+              }}
+            >
+              AI Assistant
+            </motion.span>
+          </motion.h1>
+          
+          {/* Enhanced subtitle with better spacing and typography */}
+          <motion.div 
+            className="max-w-4xl mx-auto px-6 sm:px-8"
+            variants={titleVariants}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+          >
+            <p className="text-lg sm:text-xl lg:text-2xl xl:text-3xl text-gray-700 dark:text-gray-200 leading-relaxed mb-4 font-medium">
+              Empower your legal workflow with advanced OCR, translation, and AI insights.
+            </p>
+            
+            {/* Feature highlights */}
+            <motion.div 
+              className="flex flex-wrap justify-center gap-4 sm:gap-6 mt-6 sm:mt-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.8 }}
+            >
+              {[
+                { icon: '🔍', text: 'Smart OCR' },
+                { icon: '🌐', text: 'Multi-Language' },
+                { icon: '⚡', text: 'Lightning Fast' },
+                { icon: '🤖', text: 'AI-Powered' }
+              ].map((feature, index) => (
+                <motion.div
+                  key={feature.text}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-200/50 dark:border-gray-700/50"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    y: -2,
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
+                  }}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 1 + index * 0.1 }}
+                >
+                  <span className="text-xl">{feature.icon}</span>
+                  <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300">
+                    {feature.text}
+                  </span>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
         </motion.header>
 
         <motion.div
-          className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12"
+          className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 mb-8 sm:mb-12"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -727,7 +1036,7 @@ function App() {
           {/* File Upload Section */}
           <motion.div variants={itemVariants} className="lg:col-span-1">
             <motion.div 
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 h-full flex flex-col justify-between"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 h-full flex flex-col justify-between card-glow"
               variants={cardVariants}
               whileHover="hover"
             >
@@ -748,7 +1057,7 @@ function App() {
           {/* Language Selection & AI Operations */}
           <motion.div variants={itemVariants} className="lg:col-span-2 relative z-20">
             <motion.div 
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 h-full flex flex-col justify-between overflow-visible"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 h-full flex flex-col justify-between overflow-visible card-glow"
               variants={cardVariants}
               whileHover="hover"
             >

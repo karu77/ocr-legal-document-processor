@@ -82,7 +82,7 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, allLanguages }) 
     <Listbox value={selectedLanguage} onChange={onLanguageChange} by="name">
       <div className="relative">
         <Listbox.Button 
-          className="group relative w-full flex items-center justify-between bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl py-3 pl-4 pr-4 text-left shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 sm:text-sm md:text-base"
+          className="group relative w-full flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl py-3 pl-4 pr-3 text-left shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 sm:text-sm md:text-base cursor-pointer"
         >
           <div className="flex items-center space-x-3">
             <motion.span 
@@ -115,9 +115,9 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, allLanguages }) 
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <Listbox.Options className="absolute z-[99] mt-2 w-full bg-white dark:bg-gray-800 shadow-xl max-h-80 rounded-2xl border border-gray-200 dark:border-gray-700 py-2 text-base ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none sm:text-sm md:text-base">
+          <Listbox.Options className="absolute z-[99] mt-2 w-full bg-white dark:bg-gray-800 shadow-lg dark:shadow-2xl max-h-80 rounded-xl border border-gray-200 dark:border-gray-700 py-1 text-base ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none sm:text-sm md:text-base card-glow">
             {/* Search Input */}
-            <div className="sticky top-0 bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 z-10">
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                 <input
@@ -125,7 +125,7 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, allLanguages }) 
                   placeholder="Search languages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 text-sm bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 text-sm bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                 />
               </div>
             </div>
@@ -144,25 +144,22 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, allLanguages }) 
                     value={language}
                     className={({ active }) =>
                       clsx(
-                        'relative cursor-default select-none mx-2 rounded-xl transition-all duration-200',
+                        'relative cursor-default select-none mx-2 my-1 rounded-lg transition-all duration-200',
                         active 
-                          ? 'bg-blue-100 dark:bg-blue-700 text-blue-900 dark:text-blue-200' 
+                          ? 'bg-blue-100/70 dark:bg-blue-800/40 text-blue-900 dark:text-blue-100' 
                           : 'text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700'
                       )
                     }
                   >
                     {({ selected, active }) => (
-                      <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: languageIdx * 0.02, duration: 0.3 }}
+                      <div
                         className={clsx(
-                          'flex items-center space-x-3 py-3 px-4',
+                          'flex items-center space-x-3 py-2.5 px-3',
                           selected ? 'font-semibold' : 'font-normal'
                         )}
                       >
                         <motion.span 
-                          className="text-2xl flex-shrink-0"
+                          className="text-xl flex-shrink-0"
                           whileHover={{ scale: 1.1 }}
                           transition={{ duration: 0.2 }}
                         >
@@ -171,11 +168,11 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, allLanguages }) 
                         <div className="flex-1 min-w-0">
                           <span className={clsx(
                             'block truncate text-base',
-                            selected ? 'font-semibold' : 'font-medium'
+                            selected ? 'font-bold' : 'font-medium'
                           )}>
                             {language.name}
                           </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400 block truncate">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 block truncate">
                             {language.region}
                           </span>
                         </div>
@@ -187,12 +184,12 @@ const LanguageSelector = ({ selectedLanguage, onLanguageChange, allLanguages }) 
                             transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           >
                             <CheckIcon 
-                              className="h-5 w-5 text-blue-600 dark:text-blue-300" 
+                              className="h-4 w-4 text-blue-600 dark:text-blue-300" 
                               aria-hidden="true" 
                             />
                           </motion.span>
                         )}
-                      </motion.div>
+                      </div>
                     )}
                   </Listbox.Option>
                 ))

@@ -105,13 +105,13 @@ const DocumentComparison = ({ comparison, onNewComparison }) => {
     
     switch (type) {
       case 'added':
-        return `${baseStyle} bg-gradient-to-r from-green-50 to-emerald-50 border-green-400 text-green-800`
+        return `${baseStyle} bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-400 text-green-800 dark:text-green-200`
       case 'deleted':
-        return `${baseStyle} bg-gradient-to-r from-red-50 to-rose-50 border-red-400 text-red-800`
+        return `${baseStyle} bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 border-red-400 text-red-800 dark:text-red-200`
       case 'equal':
-        return `${baseStyle} bg-white border-gray-200 text-gray-700`
+        return `${baseStyle} bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300`
       case 'empty':
-        return `${baseStyle} bg-gray-50 border-gray-200 text-gray-400`
+        return `${baseStyle} bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500`
       default:
         return baseStyle
     }
@@ -129,25 +129,25 @@ const DocumentComparison = ({ comparison, onNewComparison }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200"
+      className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-8 border border-blue-200 dark:border-blue-700"
     >
       <div className="flex items-center space-x-4 mb-6">
         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center">
           <LightBulbIcon className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h3 className="text-xl font-semibold text-gray-900">How to Compare Documents</h3>
-          <p className="text-sm text-gray-600">Upload two documents to see their differences side by side</p>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">How to Compare Documents</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Upload two documents to see their differences side by side</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900 flex items-center">
+          <h4 className="font-semibold text-gray-900 dark:text-white flex items-center">
             <DocumentDuplicateIcon className="w-5 h-5 mr-2 text-blue-600" />
             Step 1: Upload Two Files
           </h4>
-          <div className="pl-7 space-y-2 text-sm text-gray-700">
+          <div className="pl-7 space-y-2 text-sm text-gray-700 dark:text-gray-300">
             <p>• Upload any two documents you want to compare</p>
             <p>• Supports: PDF, DOCX, TXT, HTML, CSV, and images</p>
             <p>• Both files will be processed with OCR if needed</p>
@@ -155,11 +155,11 @@ const DocumentComparison = ({ comparison, onNewComparison }) => {
         </div>
 
         <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900 flex items-center">
+          <h4 className="font-semibold text-gray-900 dark:text-white flex items-center">
             <ArrowsRightLeftIcon className="w-5 h-5 mr-2 text-green-600" />
             Step 2: View Comparison
           </h4>
-          <div className="pl-7 space-y-2 text-sm text-gray-700">
+          <div className="pl-7 space-y-2 text-sm text-gray-700 dark:text-gray-300">
             <p>• See similarity percentage at a glance</p>
             <p>• Toggle between unified and split view</p>
             <p>• Filter to see only differences</p>
@@ -168,15 +168,15 @@ const DocumentComparison = ({ comparison, onNewComparison }) => {
         </div>
       </div>
 
-      <div className="mt-6 p-4 bg-white/60 rounded-xl border border-blue-200">
+      <div className="mt-6 p-4 bg-white/60 dark:bg-gray-800/60 rounded-xl border border-blue-200 dark:border-blue-700">
         <div className="flex items-start space-x-3">
           <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
             <p className="font-medium mb-1">Pro Tips:</p>
             <ul className="space-y-1 text-xs">
-              <li>• Use <span className="font-mono bg-blue-100 px-1 rounded">Unified View</span> to see changes inline</li>
-              <li>• Use <span className="font-mono bg-blue-100 px-1 rounded">Split View</span> to see documents side by side</li>
-              <li>• Toggle <span className="font-mono bg-blue-100 px-1 rounded">Differences Only</span> to focus on changes</li>
+              <li>• Use <span className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 rounded">Unified View</span> to see changes inline</li>
+              <li>• Use <span className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 rounded">Split View</span> to see documents side by side</li>
+              <li>• Toggle <span className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 rounded">Differences Only</span> to focus on changes</li>
               <li>• Green highlights show additions, red shows deletions</li>
             </ul>
           </div>
@@ -214,272 +214,259 @@ const DocumentComparison = ({ comparison, onNewComparison }) => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 overflow-hidden"
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.5 }}
+      className="bg-white dark:bg-gray-800 rounded-2xl p-8 h-full flex flex-col relative card-glow"
     >
-      {/* Header */}
-      <div className="bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-gray-500 to-slate-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <ScaleIcon className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">
-                Document Comparison Results
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Side-by-side analysis with {similarity.toFixed(1)}% similarity
-              </p>
-            </div>
-          </div>
+      <AnimatePresence mode="wait">
+        {showInstructions && (
+          <InstructionsPanel />
+        )}
 
-          {/* Controls */}
-          <div className="flex items-center space-x-3">
-            <motion.button
-              onClick={() => setShowInstructions(!showInstructions)}
-              className="flex items-center space-x-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium text-sm transition-all duration-300"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <InformationCircleIcon className="w-4 h-4" />
-              <span>Help</span>
-            </motion.button>
-            
-            <motion.button
-              onClick={() => setViewMode(viewMode === 'unified' ? 'split' : 'unified')}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/60 hover:bg-white/80 text-gray-700 rounded-xl font-medium text-sm transition-all duration-300 hover:shadow-lg"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <EyeIcon className="w-4 h-4" />
-              <span>{viewMode === 'unified' ? 'Split View' : 'Unified View'}</span>
-            </motion.button>
-
-            <motion.button
-              onClick={() => setShowOnlyDifferences(!showOnlyDifferences)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300 hover:shadow-lg ${
-                showOnlyDifferences 
-                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
-                  : 'bg-white/60 hover:bg-white/80 text-gray-700'
-              }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <MagnifyingGlassIcon className="w-4 h-4" />
-              <span>Differences Only</span>
-            </motion.button>
-
-            {onNewComparison && (
+        {!showInstructions && comparison && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="flex-1 flex flex-col"
+          >
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200 flex items-center">
+                <ScaleIcon className="h-8 w-8 mr-3 text-indigo-500" /> Document Comparison
+              </h2>
               <motion.button
-                onClick={onNewComparison}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl font-medium text-sm transition-all duration-300 hover:shadow-lg"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowInstructions(true)}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                <DocumentDuplicateIcon className="w-4 h-4" />
+                <InformationCircleIcon className="w-6 h-6" />
+              </motion.button>
+            </div>
+
+            {/* Comparison Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <motion.div 
+                className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center border border-gray-200 dark:border-gray-600 shadow-sm"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <p className="text-sm text-gray-500 dark:text-gray-300">Total Lines</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+              </motion.div>
+              <motion.div 
+                className="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center border border-green-200 dark:border-green-700 shadow-sm"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <p className="text-sm text-green-700 dark:text-green-300">Added</p>
+                <p className="text-2xl font-bold text-green-800 dark:text-green-200">{stats.added}</p>
+              </motion.div>
+              <motion.div 
+                className="bg-red-50 dark:bg-red-900/30 rounded-lg p-4 text-center border border-red-200 dark:border-red-700 shadow-sm"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                <p className="text-sm text-red-700 dark:text-red-300">Deleted</p>
+                <p className="text-2xl font-bold text-red-800 dark:text-red-200">{stats.deleted}</p>
+              </motion.div>
+              <motion.div 
+                className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-center border border-blue-200 dark:border-blue-700 shadow-sm"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <p className="text-sm text-blue-700 dark:text-blue-300">Unchanged</p>
+                <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{stats.unchanged}</p>
+              </motion.div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">View:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-full p-1">
+                  <motion.button
+                    onClick={() => setViewMode('unified')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      viewMode === 'unified' 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Unified
+                  </motion.button>
+                  <motion.button
+                    onClick={() => setViewMode('split')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      viewMode === 'split' 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Split
+                  </motion.button>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-full p-1">
+                  <motion.button
+                    onClick={() => setShowOnlyDifferences(false)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      !showOnlyDifferences 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    All Lines
+                  </motion.button>
+                  <motion.button
+                    onClick={() => setShowOnlyDifferences(true)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      showOnlyDifferences 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Differences
+                  </motion.button>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Highlight:</span>
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-full p-1">
+                  <motion.button
+                    onClick={() => setHighlightMode('both')}
+                    className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      highlightMode === 'both' 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Both
+                  </motion.button>
+                  <motion.button
+                    onClick={() => setHighlightMode('additions')}
+                    className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      highlightMode === 'additions' 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Additions
+                  </motion.button>
+                  <motion.button
+                    onClick={() => setHighlightMode('deletions')}
+                    className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      highlightMode === 'deletions' 
+                        ? 'bg-white shadow text-gray-900 dark:bg-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Deletions
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+
+            {/* Comparison Display */}
+            <div className="flex-1 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 shadow-inner flex mb-6">
+              {viewMode === 'unified' ? (
+                <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-xl scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 relative">
+                  <pre className="p-4 text-xs leading-relaxed">
+                    {filteredDiff.unified.map((line, index) => shouldShowLine(line.type) && (
+                      <div key={index} className={getLineStyle(line.type)}>
+                        <span className="inline-block w-8 text-right pr-2 text-gray-400 dark:text-gray-600 select-none">
+                          {line.lineNumber}
+                        </span>
+                        <span>{line.content}</span>
+                      </div>
+                    ))}
+                  </pre>
+                </div>
+              ) : (
+                <div className="flex flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-tl-xl rounded-bl-xl border-r border-gray-200 dark:border-gray-700 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 relative">
+                    <pre className="p-4 text-xs leading-relaxed">
+                      {filteredDiff.split.left.map((line, index) => shouldShowLine(line.type) && (
+                        <div key={index} className={getLineStyle(line.type)}>
+                          <span className="inline-block w-8 text-right pr-2 text-gray-400 dark:text-gray-600 select-none">
+                            {line.lineNumber}
+                          </span>
+                          <span>{line.content}</span>
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
+                  <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-tr-xl rounded-br-xl scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 relative">
+                    <pre className="p-4 text-xs leading-relaxed">
+                      {filteredDiff.split.right.map((line, index) => shouldShowLine(line.type) && (
+                        <div key={index} className={getLineStyle(line.type)}>
+                          <span className="inline-block w-8 text-right pr-2 text-gray-400 dark:text-gray-600 select-none">
+                            {line.lineNumber}
+                          </span>
+                          <span>{line.content}</span>
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Export and New Comparison Buttons */}
+            <div className="flex justify-end space-x-4">
+              <motion.button
+                onClick={() => copyToClipboard(comparison.text1, 'text1')}
+                className={`flex items-center space-x-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium transition-colors ${copiedStates.text1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                disabled={copiedStates.text1}
+              >
+                <ClipboardIcon className="w-5 h-5" />
+                <span>{copiedStates.text1 ? 'Copied!' : 'Copy Document 1'}</span>
+              </motion.button>
+              <motion.button
+                onClick={() => copyToClipboard(comparison.text2, 'text2')}
+                className={`flex items-center space-x-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium transition-colors ${copiedStates.text2 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                disabled={copiedStates.text2}
+              >
+                <ClipboardIcon className="w-5 h-5" />
+                <span>{copiedStates.text2 ? 'Copied!' : 'Copy Document 2'}</span>
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  onNewComparison()
+                  setShowInstructions(true)
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <DocumentDuplicateIcon className="w-5 h-5" />
                 <span>New Comparison</span>
               </motion.button>
-            )}
-          </div>
-        </div>
-
-        {/* Similarity meter */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Similarity Score</span>
-            <span className="text-sm font-bold text-gray-900">{similarity.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <motion.div 
-              className={`h-3 rounded-full ${
-                similarity >= 80 ? 'bg-gradient-to-r from-green-400 to-green-500' :
-                similarity >= 50 ? 'bg-gradient-to-r from-yellow-400 to-orange-500' :
-                'bg-gradient-to-r from-red-400 to-red-500'
-              }`}
-              initial={{ width: 0 }}
-              animate={{ width: `${similarity}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
-            />
-          </div>
-        </div>
-
-        {/* Statistics */}
-        <div className="grid grid-cols-4 gap-4 mt-6">
-          <div className="text-center p-3 bg-white/60 rounded-xl">
-            <div className="text-lg font-bold text-gray-900">{stats.total}</div>
-            <div className="text-xs text-gray-600">Total Lines</div>
-          </div>
-          <div className="text-center p-3 bg-white/60 rounded-xl">
-            <div className="text-lg font-bold text-green-600">{stats.added}</div>
-            <div className="text-xs text-gray-600">Added</div>
-          </div>
-          <div className="text-center p-3 bg-white/60 rounded-xl">
-            <div className="text-lg font-bold text-red-600">{stats.deleted}</div>
-            <div className="text-xs text-gray-600">Removed</div>
-          </div>
-          <div className="text-center p-3 bg-white/60 rounded-xl">
-            <div className="text-lg font-bold text-blue-600">{stats.unchanged}</div>
-            <div className="text-xs text-gray-600">Unchanged</div>
-          </div>
-        </div>
-
-        {/* File Names */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          <motion.div 
-            className="flex items-center space-x-3 p-3 bg-white/60 rounded-xl"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <DocumentTextIcon className="w-5 h-5 text-red-600" />
-            <div>
-              <p className="font-medium text-gray-900 text-sm">{comparison.file1Name || 'Document 1'}</p>
-              <p className="text-xs text-gray-600">Original Document</p>
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            className="flex items-center space-x-3 p-3 bg-white/60 rounded-xl"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <DocumentTextIcon className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="font-medium text-gray-900 text-sm">{comparison.file2Name || 'Document 2'}</p>
-              <p className="text-xs text-gray-600">Comparison Document</p>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Instructions toggle */}
-      <AnimatePresence>
-        {showInstructions && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="border-b border-gray-100 p-6 bg-blue-50/50"
-          >
-            <div className="flex items-start space-x-3">
-              <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-gray-700">
-                <p className="font-medium mb-2">How to use this comparison:</p>
-                <ul className="space-y-1 text-xs">
-                  <li>• <span className="font-semibold text-green-700">Green highlights</span> show text that was added in the second document</li>
-                  <li>• <span className="font-semibold text-red-700">Red highlights</span> show text that was removed from the first document</li>
-                  <li>• Use the view toggles above to change how differences are displayed</li>
-                  <li>• The similarity score shows how much the documents match overall</li>
-                </ul>
-              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Comparison Content */}
-      <div className="p-6">
-        {viewMode === 'unified' ? (
-          <div className="space-y-1 max-h-96 overflow-y-auto border border-gray-200 rounded-xl">
-            {filteredDiff.unified.filter(shouldShowLine).map((line, index) => (
-              <div key={index} className={getLineStyle(line.type)}>
-                <div className="flex items-start space-x-3">
-                  <span className="text-xs text-gray-500 font-mono w-8 flex-shrink-0">
-                    {line.lineNumber}
-                  </span>
-                  <span className="flex-1">{line.content || '(empty line)'}</span>
-                  {line.type !== 'equal' && (
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-white/60">
-                      {line.type === 'added' ? '+' : '-'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                <DocumentTextIcon className="w-4 h-4 mr-2 text-red-600" />
-                Original Document
-              </h4>
-              <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-xl">
-                {filteredDiff.split.left.filter(shouldShowLine).map((line, index) => (
-                  <div key={index} className={getLineStyle(line.type)}>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-xs text-gray-500 font-mono w-8 flex-shrink-0">
-                        {line.lineNumber}
-                      </span>
-                      <span className="flex-1">{line.content || '(empty line)'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="space-y-1">
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                <DocumentTextIcon className="w-4 h-4 mr-2 text-green-600" />
-                Comparison Document
-              </h4>
-              <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-xl">
-                {filteredDiff.split.right.filter(shouldShowLine).map((line, index) => (
-                  <div key={index} className={getLineStyle(line.type)}>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-xs text-gray-500 font-mono w-8 flex-shrink-0">
-                        {line.lineNumber}
-                      </span>
-                      <span className="flex-1">{line.content || '(empty line)'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-          <div className="flex items-center space-x-3">
-            <motion.button
-              onClick={() => copyToClipboard(comparison.text1, 'doc1')}
-              className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all duration-300"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <ClipboardIcon className="w-4 h-4" />
-              <span>Copy Doc 1</span>
-              {copiedStates.doc1 && <CheckCircleIcon className="w-4 h-4 text-green-600" />}
-            </motion.button>
-            
-            <motion.button
-              onClick={() => copyToClipboard(comparison.text2, 'doc2')}
-              className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all duration-300"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <ClipboardIcon className="w-4 h-4" />
-              <span>Copy Doc 2</span>
-              {copiedStates.doc2 && <CheckCircleIcon className="w-4 h-4 text-green-600" />}
-            </motion.button>
-          </div>
-
-          <motion.button
-            onClick={() => copyToClipboard(JSON.stringify(comparison, null, 2), 'comparison')}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-all duration-300"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <ChartBarIcon className="w-4 h-4" />
-            <span>Copy Full Report</span>
-            {copiedStates.comparison && <CheckCircleIcon className="w-4 h-4 text-green-600" />}
-          </motion.button>
-        </div>
-      </div>
     </motion.div>
   )
 }

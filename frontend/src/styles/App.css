@@ -180,6 +180,42 @@
   }
 }
 
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+}
+
+@keyframes gradient-wave {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  16.666% {
+    background-position: 25% 25%;
+  }
+  33.333% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 75% 25%;
+  }
+  66.666% {
+    background-position: 100% 50%;
+  }
+  83.333% {
+    background-position: 75% 75%;
+  }
+}
+
 /* Component-specific styles */
 .glass-card {
   background: rgba(255, 255, 255, 0.8);
@@ -386,6 +422,24 @@
 @keyframes slideIn {
   from { opacity: 0; transform: translateX(-20px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+/* Card glow effect */
+.card-glow {
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.05), 0 0 30px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+.dark .card-glow {
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05), 0 0 30px rgba(255, 255, 255, 0.03);
+}
+
+.card-glow:hover {
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.1), 0 0 50px rgba(0, 0, 0, 0.05);
+}
+
+.dark .card-glow:hover {
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.1), 0 0 50px rgba(255, 255, 255, 0.05);
 }
 
 /* Print styles */
