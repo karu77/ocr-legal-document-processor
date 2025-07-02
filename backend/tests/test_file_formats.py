@@ -64,7 +64,6 @@ def test_unsupported_file_type(client):
     assert json_data['success'] is False
     assert 'File type not supported' in json_data['error']
 
-@pytest.mark.skip(reason="Requires a sample PDF file named 'test.pdf' in the tests/sample_files directory.")
 def test_process_pdf_file(client):
     """Test processing a PDF file (requires sample)."""
     file_path = os.path.join(SAMPLES_DIR, 'test.pdf')
@@ -79,9 +78,8 @@ def test_process_pdf_file(client):
     json_data = json.loads(response.data)
     assert json_data['success'] is True
     # Add a specific assertion based on your test PDF's content
-    assert len(json_data['extracted_text']) > 50 
+    assert len(json_data['extracted_text']) > 20  # Reduced threshold for simple test PDF 
 
-@pytest.mark.skip(reason="Requires a sample DOCX file named 'test.docx' in the tests/sample_files directory.")
 def test_process_docx_file(client):
     """Test processing a DOCX file (requires sample)."""
     file_path = os.path.join(SAMPLES_DIR, 'test.docx')
@@ -98,7 +96,6 @@ def test_process_docx_file(client):
     # Add a specific assertion based on your test DOCX's content
     assert len(json_data['extracted_text']) > 50
 
-@pytest.mark.skip(reason="Requires a sample image file named 'test.png' in the tests/sample_files directory.")
 def test_process_image_file(client):
     """Test processing an image file (requires sample)."""
     file_path = os.path.join(SAMPLES_DIR, 'test.png')

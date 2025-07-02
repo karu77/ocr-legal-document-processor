@@ -250,35 +250,67 @@ function App() {
   const handleFileSelect = useCallback((selectedFiles) => {
     // Limit to 2 files for comparison
     const filesToStore = selectedFiles.slice(0, 2)
-    setFiles(filesToStore)
     
-    // Reset all results when new files are selected
-    setResults({
-      ocrText: '',
-      translatedText: '',
-      cleanedText: '',
-      summary: '',
-      bulletPoints: '',
-      comparison: null,
-      filename: '',
-      allProcessedFiles: [],
-      detectedLanguage: null,
-      ocrWarning: null,
-    })
-    setError('')
+    // Keep track of existing processed files
+    const existingProcessedFiles = results.allProcessedFiles || []
     
-    // Show appropriate toast message
-    if (filesToStore.length === 2) {
-      toast.success('Two files selected for comparison. Previous results cleared.')
+    // If we're adding files to existing ones, preserve them
+    let updatedFiles = [...files]
+    let shouldResetResults = false
+    
+    // If this is a fresh start or replacing all files
+    if (filesToStore.length === 1 && files.length === 0) {
+      // First file upload
+      updatedFiles = filesToStore
+      shouldResetResults = true
+    } else if (filesToStore.length === 2) {
+      // Two files selected at once - replace everything
+      updatedFiles = filesToStore
+      shouldResetResults = true
+    } else if (filesToStore.length === 1 && files.length === 1) {
+      // Adding second file
+      updatedFiles = [files[0], filesToStore[0]]
+      shouldResetResults = false
     } else {
-      toast.success('File selected. Previous results cleared.')
+      // Default case - replace all
+      updatedFiles = filesToStore
+      shouldResetResults = true
     }
     
-    // Automatically trigger OCR for both files if 2 files are selected
-    if (filesToStore.length === 2) {
-      handleOCR()
+    setFiles(updatedFiles)
+    
+    if (shouldResetResults) {
+      // Only reset results for fresh start
+      setResults({
+        ocrText: '',
+        translatedText: '',
+        cleanedText: '',
+        summary: '',
+        bulletPoints: '',
+        comparison: null,
+        filename: '',
+        allProcessedFiles: [],
+        detectedLanguage: null,
+        ocrWarning: null,
+      })
+      setError('')
+      
+      // Show appropriate toast message
+      if (updatedFiles.length === 2) {
+        toast.success('Two files selected for comparison. Previous results cleared.')
+      } else {
+        toast.success('File selected. Ready for processing.')
+      }
+    } else {
+      // Just adding a second file - preserve existing processed data
+      toast.success(`Second file added. You now have ${updatedFiles.length} files ready for comparison.`)
     }
-  }, [])
+    
+    // Automatically trigger OCR for both files if 2 files are selected and no previous processing
+    if (updatedFiles.length === 2 && shouldResetResults) {
+      setTimeout(() => handleOCR(), 100) // Small delay to ensure state is updated
+    }
+  }, [files, results.allProcessedFiles])
 
   // Handle language selection
   const handleLanguageChange = useCallback((languageObject) => {
@@ -325,46 +357,68 @@ function App() {
     setError('')
 
     try {
-      // Process all files
-      const processedResults = await Promise.all(
-        files.map(async (file) => {
-          const formData = new FormData()
-          formData.append('file', file)
-          
-          const response = await axios.post('/ocr', formData)
-          if (!response.data.success) {
-            throw new Error(response.data.error || 'OCR processing failed')
-          }
-          
-          return {
-            filename: file.name,
-            text: response.data.extracted_text
-          }
-        })
-      )
+      // Get existing processed files to avoid reprocessing
+      const existingProcessedFiles = results.allProcessedFiles || []
+      const existingFilenames = existingProcessedFiles.map(f => f.filename)
+      
+      // Only process files that haven't been processed yet
+      const filesToProcess = files.filter(file => !existingFilenames.includes(file.name))
+      
+      let newProcessedResults = []
+      
+      if (filesToProcess.length > 0) {
+        // Process new files
+        newProcessedResults = await Promise.all(
+          filesToProcess.map(async (file) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            
+            const response = await axios.post('/ocr', formData)
+            if (!response.data.success) {
+              throw new Error(response.data.error || 'OCR processing failed')
+            }
+            
+            return {
+              filename: file.name,
+              text: response.data.extracted_text,
+              detected_lang_name: response.data.detected_lang_name,
+              warning: response.data.warning
+            }
+          })
+        )
+      }
+
+      // Combine existing and new processed files
+      const allProcessedFiles = [...existingProcessedFiles, ...newProcessedResults]
 
       // Update results with all processed files
       setResults(prev => ({
         ...prev,
-        ocrText: processedResults[0].text, // Keep first result as main OCR text for other operations
-        filename: processedResults[0].filename,
-        allProcessedFiles: processedResults,
-        detectedLanguage: processedResults[0].detected_lang_name,
-        ocrWarning: processedResults[0].warning,
-        // Clear subsequent results
-        translatedText: "",
-        cleanedText: "",
-        summary: "",
-        bulletPoints: "",
-        comparison: null,
+        ocrText: allProcessedFiles[0]?.text || prev.ocrText, // Keep first result as main OCR text for other operations
+        filename: allProcessedFiles[0]?.filename || prev.filename,
+        allProcessedFiles: allProcessedFiles,
+        detectedLanguage: allProcessedFiles[0]?.detected_lang_name || prev.detectedLanguage,
+        ocrWarning: allProcessedFiles[0]?.warning || prev.ocrWarning,
+        // Only clear subsequent results if we processed new files
+        ...(newProcessedResults.length > 0 && {
+          translatedText: "",
+          cleanedText: "",
+          summary: "",
+          bulletPoints: "",
+          comparison: null,
+        })
       }))
 
       // If we have exactly two files, automatically trigger comparison
-      if (processedResults.length === 2) {
-        await handleCompare(processedResults[0], processedResults[1])
+      if (allProcessedFiles.length === 2) {
+        await handleCompare(allProcessedFiles[0], allProcessedFiles[1])
       }
 
-      toast.success(`OCR Processing completed for ${processedResults.length} file(s)!`)
+      if (newProcessedResults.length > 0) {
+        toast.success(`OCR Processing completed for ${newProcessedResults.length} new file(s)! Total: ${allProcessedFiles.length}`)
+      } else {
+        toast.info('All files already processed. Use "Compare Documents" to compare them.')
+      }
     } catch (error) {
       console.error('OCR error:', error)
       const errorMsg = error.response?.data?.error || error.message || 'OCR Processing failed'

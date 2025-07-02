@@ -52,8 +52,8 @@ const ActionButtons = ({
   // Check if OCR text exists for hasText
   const hasText = !!results.ocrText
 
-  // Check if two files are uploaded for comparison
-  const canCompare = results.comparison !== null || (Array.isArray(results.files) && results.files.length >= 2)
+  // Check if two files are processed for comparison
+  const canCompare = results.comparison !== null || (Array.isArray(results.allProcessedFiles) && results.allProcessedFiles.length >= 2)
 
   const buttonVariants = {
     rest: { scale: 1, y: 0, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
@@ -219,9 +219,9 @@ const ActionButtons = ({
       disabled: !canCompare,
       icon: ScaleIcon,
       title: 'Compare Documents',
-      description: 'Compare two uploaded documents for differences',
+      description: 'Compare two processed documents for differences',
       gradient: 'from-gray-500 to-gray-700',
-      processing: loading && currentOperation === 'Document Comparison',
+      processing: loading && currentOperation === 'Comparing Documents',
       completed: results.comparison !== null && !loading
     },
   ]

@@ -8,7 +8,7 @@ import traceback
 import logging
 import time
 
-from .utils.ocr_processor import (
+from utils.ocr_processor import (
     process_ocr,
     # clean_text, summarize_text, extract_key_points, # These are library-based, we want to use Gemini
     # Import the better translation functions
@@ -19,7 +19,7 @@ from .utils.ocr_processor import (
     compare_documents,
     perform_ocr_with_lang_detect
 )
-from .utils.gemini_client import GeminiClient
+from utils.gemini_client import GeminiClient
 # from utils.database import db_manager
 from bson import ObjectId
 import json
@@ -145,7 +145,13 @@ def process_document():
         filename = secure_filename(file.filename)
         temp_dir = tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{filename}")
-        file.save(temp_path)
+        
+        # Save file with proper encoding handling
+        try:
+            file.save(temp_path)
+        except Exception as save_error:
+            app.logger.error(f"Error saving file: {save_error}")
+            return jsonify({"success": False, "error": f"Failed to save file: {str(save_error)}"}), 500
         
         try:
             # Handle different file types
