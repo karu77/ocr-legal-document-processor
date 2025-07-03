@@ -147,7 +147,7 @@ const ActionButtons = ({
         whileTap={!disabled ? "tap" : "disabled"}
         onClick={onClick}
         disabled={disabled || loading}
-        className={`group relative w-full p-4 sm:p-5 lg:p-6 rounded-2xl border-2 transition-all duration-300 overflow-hidden text-left min-h-[120px] sm:min-h-[140px] ${ 
+        className={`group relative w-full p-3 sm:p-4 lg:p-5 xl:p-6 rounded-2xl border-2 transition-all duration-300 overflow-hidden text-left min-h-[100px] sm:min-h-[120px] lg:min-h-[140px] touch-manipulation ${ 
           disabled 
             ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800 cursor-not-allowed text-gray-400 dark:text-gray-600 shadow-sm' 
             : completed
@@ -179,10 +179,10 @@ const ActionButtons = ({
           />
         </div>
 
-        <div className="relative flex items-start space-x-3 sm:space-x-4 z-10 h-full">
+        <div className="relative flex items-start space-x-2 sm:space-x-3 lg:space-x-4 z-10 h-full">
           {/* Enhanced Icon Container */}
           <motion.div 
-            className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center transition-all duration-300 ${ 
+            className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 xl:w-14 xl:h-14 rounded-xl flex items-center justify-center transition-all duration-300 ${ 
               disabled 
                 ? 'bg-gray-100 dark:bg-gray-700' 
                 : completed
@@ -200,310 +200,239 @@ const ActionButtons = ({
                 "rest"
               }
             >
-              <AnimatePresence mode="wait">
-                {completed ? (
-                  <motion.div
-                    key="completed"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    exit={{ scale: 0, rotate: 180 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <CheckCircleIcon className="w-6 h-6 sm:w-7 sm:h-7 text-green-600 dark:text-green-300" />
-                  </motion.div>
-                ) : isProcessing ? (
-                  <motion.div
-                    key="processing"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
-                    <ClockIcon className="w-6 h-6 sm:w-7 sm:h-7 text-white dark:text-gray-300" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="default"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
-                    <Icon className={`w-6 h-6 sm:w-7 sm:h-7 ${disabled ? 'text-gray-400 dark:text-gray-600' : 'text-white'}`} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <Icon 
+                className={`${
+                  isProcessing ? 'text-white' : 
+                  disabled ? 'text-gray-400 dark:text-gray-500' : 
+                  completed ? 'text-green-600 dark:text-green-400' : 
+                  'text-white'
+                } w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6`} 
+              />
             </motion.div>
           </motion.div>
 
-          {/* Enhanced Content */}
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <motion.h3 
-                  className={`font-semibold text-base sm:text-lg transition-colors duration-300 ${
-                    disabled 
-                      ? 'text-gray-400 dark:text-gray-600' 
-                      : completed
-                      ? 'text-green-700 dark:text-green-300'
-                      : 'text-white'
-                  }`}
-                  animate={{ 
-                    opacity: isProcessing ? [1, 0.7, 1] : 1 
-                  }}
-                  transition={{ 
-                    duration: 1.5, 
-                    repeat: isProcessing ? Infinity : 0 
-                  }}
-                >
-                  {title}
-                </motion.h3>
-                <AnimatePresence mode="wait">
-                  {disabled && !isProcessing ? (
-                    <motion.div
-                      key="disabled-message"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.3 }}
-                      className="mt-1 flex items-center space-x-1 justify-center sm:justify-start"
-                    >
-                      <ExclamationTriangleIcon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                        {!hasFiles ? 'Upload files first' : !hasText ? 'Extract text first' : 'Requirements not met'}
-                      </p>
-                    </motion.div>
-                  ) : (
-                    <motion.p
-                      key="status-description"
-                      className={`text-xs sm:text-sm mt-1 transition-colors duration-300 leading-relaxed ${
-                        disabled // This disabled condition for text color will now only apply to the regular description.
-                          ? 'text-gray-400 dark:text-gray-600'
-                          : completed
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-white/80'
-                      }`}
-                      animate={{
-                        opacity: isProcessing ? 0.8 : 1
-                      }}
-                    >
-                      {isProcessing ? 'Processing...' : completed ? 'Completed!' : description}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Priority Indicator */}
-              {priority === 'high' && !disabled && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="flex-shrink-0 ml-2"
-                >
-                  <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
-                </motion.div>
-              )}
-            </div>
-
-            {/* Progress Bar for Processing */}
+            <h3 className={`font-bold text-sm sm:text-base lg:text-lg mb-1 sm:mb-2 ${
+              disabled 
+                ? 'text-gray-400 dark:text-gray-600' 
+                : completed
+                ? 'text-green-700 dark:text-green-300'
+                : 'text-white'
+            }`}>
+              {title}
+            </h3>
+            <p className={`text-xs sm:text-sm lg:text-base leading-relaxed ${
+              disabled 
+                ? 'text-gray-400 dark:text-gray-600' 
+                : completed
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-white/90'
+            }`}>
+              {description}
+            </p>
+            
+            {/* Processing indicator */}
             <AnimatePresence>
               {isProcessing && (
                 <motion.div
-                  initial={{ opacity: 0, scaleX: 0 }}
-                  animate={{ opacity: 1, scaleX: 1 }}
-                  exit={{ opacity: 0, scaleX: 0 }}
-                  className="mt-3 h-1 bg-white/20 rounded-full overflow-hidden"
-                  style={{ originX: 0 }}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-2 sm:mt-3"
                 >
-                  <motion.div
-                    className="h-full bg-white/60 rounded-full"
-                    animate={{
-                      x: ['-100%', '100%']
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  />
+                  <div className="flex items-center space-x-2">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full"
+                    />
+                    <span className="text-xs sm:text-sm text-white/90">Processing...</span>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Status Indicator */}
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center space-x-1">
-                {completed && (
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="flex items-center space-x-1"
-                  >
-                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
-                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">Done</span>
-                  </motion.div>
-                )}
-                {isProcessing && (
-                  <motion.div
-                    animate={{ opacity: [1, 0.5, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    className="flex items-center space-x-1"
-                  >
-                    <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
-                    <span className="text-xs text-white/80 font-medium">Working...</span>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Spinning indicator for processing state */}
-              {isProcessing && (
+            {/* Completion indicator */}
+            <AnimatePresence>
+              {completed && !isProcessing && (
                 <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="w-4 h-4 border border-white/30 border-t-white/80 rounded-full"
-                />
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="mt-2 sm:mt-3"
+                >
+                  <div className="flex items-center space-x-2">
+                    <CheckCircleIcon className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-xs sm:text-sm text-green-600 dark:text-green-400 font-medium">Completed</span>
+                  </div>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </div>
         </div>
       </motion.button>
     )
   }
 
-  const buttons = [
+  const actions = [
     {
+      id: 'ocr',
       onClick: onOCR,
       disabled: !hasFiles,
       icon: DocumentTextIcon,
-      title: 'Extract Text (OCR)',
-      description: 'Extract text from uploaded documents using advanced OCR',
+      title: 'Extract Text',
+      description: 'Extract text from your documents using advanced OCR technology',
       gradient: 'from-blue-500 to-indigo-600',
-      processing: loading && results.ocrText === '' && currentOperation === 'OCR Processing',
-      completed: results.ocrText !== '' && !loading,
-      priority: 'high'
+      completed: !!results.ocrText,
+      processing: currentOperation === 'ocr',
     },
     {
+      id: 'cleanup',
       onClick: onCleanup,
       disabled: !hasText,
       icon: SparklesIcon,
       title: 'Clean Text',
-      description: 'Remove OCR artifacts and improve text readability',
-      gradient: 'from-green-500 to-teal-600',
-      processing: loading && currentOperation === 'Text Cleanup',
-      completed: results.cleanedText !== '' && !loading,
-      priority: 'normal'
+      description: 'Remove noise and improve text quality using AI',
+      gradient: 'from-purple-500 to-pink-500',
+      completed: !!results.cleanedText,
+      processing: currentOperation === 'cleanup',
     },
     {
+      id: 'translate',
       onClick: onTranslate,
       disabled: !hasText,
       icon: GlobeAltIcon,
       title: 'Translate',
-      description: 'Translate text to your selected target language',
-      gradient: 'from-purple-500 to-pink-600',
-      processing: loading && (currentOperation || '').includes('Translating'),
-      completed: results.translatedText !== '' && !loading,
-      priority: 'normal'
+      description: 'Translate extracted text to your target language',
+      gradient: 'from-green-500 to-teal-500',
+      completed: !!results.translatedText,
+      processing: currentOperation === 'translate',
     },
     {
+      id: 'summarize',
       onClick: onSummarize,
       disabled: !hasText,
       icon: ClipboardDocumentListIcon,
       title: 'Summarize',
-      description: 'Generate AI-powered summary of document content',
-      gradient: 'from-orange-500 to-red-600',
-      processing: loading && currentOperation === 'Summarizing',
-      completed: results.summary !== '' && !loading,
-      priority: 'normal'
+      description: 'Generate an intelligent summary of your document',
+      gradient: 'from-yellow-500 to-orange-600',
+      completed: !!results.summary,
+      processing: currentOperation === 'summarize',
     },
     {
+      id: 'bullets',
       onClick: onBulletPoints,
       disabled: !hasText,
       icon: ListBulletIcon,
       title: 'Key Points',
-      description: 'Extract key points and important information',
-      gradient: 'from-cyan-500 to-blue-600',
-      processing: loading && currentOperation === 'Generating Key Points',
-      completed: results.bulletPoints !== '' && !loading,
-      priority: 'normal'
+      description: 'Extract important bullet points and highlights',
+      gradient: 'from-red-500 to-rose-600',
+      completed: !!results.bulletPoints,
+      processing: currentOperation === 'bullets',
     },
     {
-      onClick: () => onCompare && onCompare(null, null),
-      disabled: !canCompare,
+      id: 'compare',
+      onClick: () => onCompare(results.allProcessedFiles?.[0], results.allProcessedFiles?.[1]),
+      disabled: !canCompare && (!results.allProcessedFiles || results.allProcessedFiles.length < 2),
       icon: ScaleIcon,
-      title: 'Compare Documents',
-      description: 'Compare multiple documents side by side',
+      title: 'Compare Docs',
+      description: 'Compare similarities and differences between documents',
       gradient: 'from-indigo-500 to-purple-600',
-      processing: loading && currentOperation === 'Comparing Documents',
-      completed: !!results.comparison && !loading,
-      priority: 'low'
+      completed: !!results.comparison,
+      processing: currentOperation === 'compare',
     }
   ]
 
   return (
-    <div className="w-full">
-      {/* Header with helpful tips */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="mb-6 p-4 bg-blue-50/80 dark:bg-blue-900/20 rounded-xl border border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm"
-      >
-        <div className="flex items-start space-x-3">
-          <LightBulbIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-          <div>
-            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">Quick Start Guide</h4>
-            <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-              Start by uploading your documents, then extract text with OCR. Once you have text, you can clean, translate, summarize, or extract key points.
-            </p>
-          </div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="w-full"
+    >
+      {/* Progress indicator for mobile */}
+      <div className="block sm:hidden mb-4">
+        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-2">
+          <span>Progress</span>
+          <span>{actions.filter(a => a.completed).length}/{actions.length}</span>
         </div>
-      </motion.div>
-
-      {/* Enhanced Action Buttons Grid */}
-      <motion.div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {buttons.map((button, index) => (
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <motion.div
-            key={index}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(actions.filter(a => a.completed).length / actions.length) * 100}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+      </div>
+
+      {/* Action buttons grid with improved mobile layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+        {actions.map((action, index) => (
+          <motion.div
+            key={action.id}
             variants={itemVariants}
             custom={index}
           >
-            <ActionButton {...button} />
+            <ActionButton {...action} />
           </motion.div>
         ))}
-      </motion.div>
+      </div>
 
-      {/* Processing Status Indicator */}
+      {/* Status indicator */}
       <AnimatePresence>
         {loading && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="mt-6 p-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50"
+            exit={{ opacity: 0, y: -10 }}
+            className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800"
           >
             <div className="flex items-center space-x-3">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full"
+                className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full"
               />
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {currentOperation || 'Processing...'}
+                <p className="text-sm sm:text-base font-medium text-blue-900 dark:text-blue-100">
+                  {currentOperation || 'Processing'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Please wait while we process your request
+                <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">
+                  Please wait while we process your request...
                 </p>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+
+      {/* Quick actions for mobile */}
+      <div className="block sm:hidden mt-4 space-y-2">
+        {!hasFiles && (
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <div className="flex items-center space-x-2">
+              <ExclamationTriangleIcon className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                Upload a document to get started
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {hasFiles && !hasText && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center space-x-2">
+              <LightBulbIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                Tap "Extract Text" to begin processing
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
   )
 }
 

@@ -1,3 +1,4 @@
+# Core Dependencies
 flask>=2.0.1
 flask-cors>=3.0.10
 python-dotenv>=0.19.2
@@ -6,18 +7,14 @@ pytesseract>=0.3.10
 pillow>=10.0.0
 pdf2image>=1.16.0
 requests==2.28.2
+google-generativeai>=0.3.2
 
 # Optional: For better OCR performance
 opencv-python==4.8.1.78
+numpy<2.0.0
 
 # For development
 gunicorn>=20.1.0
-
-# Authentication & Database
-pymongo>=4.0.1
-Flask-JWT-Extended==4.4.4
-bcrypt>=4.0.1
-email-validator>=2.0.0
 
 # Document Processing Support
 python-docx>=0.8.11
@@ -50,7 +47,6 @@ translate>=3.6.1
 # NLP Libraries
 nltk>=3.8.1
 spacy>=3.7.2
-PyJWT>=2.3.0
 langdetect>=1.0.9
 pycountry>=22.3.5
 

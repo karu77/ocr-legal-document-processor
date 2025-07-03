@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DocumentIcon, PhotoIcon, DocumentDuplicateIcon, CloudArrowUpIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { DocumentIcon, PhotoIcon, DocumentDuplicateIcon, CloudArrowUpIcon, CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { toast } from 'react-hot-toast'
 
 const FileUpload = ({ onFilesSelected }) => {
@@ -31,6 +31,13 @@ const FileUpload = ({ onFilesSelected }) => {
       toast.success(`${acceptedFiles.length} file selected!`)
     }
   }, [onFilesSelected])
+
+  const removeFile = (indexToRemove) => {
+    const updatedFiles = selectedFiles.filter((_, index) => index !== indexToRemove)
+    setSelectedFiles(updatedFiles)
+    onFilesSelected(updatedFiles)
+    toast.success('File removed')
+  }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -63,7 +70,23 @@ const FileUpload = ({ onFilesSelected }) => {
     },
     multiple: true,
     maxFiles: 2,
-    maxSize: 16 * 1024 * 1024 // 16MB
+    maxSize: 16 * 1024 * 1024, // 16MB
+    noClick: false,
+    noKeyboard: false,
+    disabled: false,
+    preventDropOnDocument: true,
+    // Mobile-specific optimizations
+    onFileDialogOpen: () => {
+      // Mobile-specific feedback
+      if (window.innerWidth <= 768) {
+        toast.loading('Opening file picker...', { duration: 1000 })
+      }
+    },
+    onFileDialogCancel: () => {
+      if (window.innerWidth <= 768) {
+        toast.dismiss()
+      }
+    }
   })
 
   const containerVariants = {
@@ -132,7 +155,7 @@ const FileUpload = ({ onFilesSelected }) => {
         variants={containerVariants}
         animate={currentVariant}
         whileHover={{ scale: 1.01 }}
-        className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-300 ease-in-out min-h-[200px] sm:min-h-[240px] backdrop-blur-sm overflow-hidden ${
+        className={`relative border-2 border-dashed rounded-2xl p-4 sm:p-6 lg:p-8 text-center cursor-pointer transition-all duration-300 ease-in-out min-h-[160px] sm:min-h-[200px] lg:min-h-[240px] backdrop-blur-sm overflow-hidden touch-manipulation ${
           isDragActive || isDragOver 
             ? 'border-blue-400 dark:border-blue-500 bg-blue-50/80 dark:bg-blue-900/20' 
             : selectedFiles.length > 0 
@@ -156,11 +179,11 @@ const FileUpload = ({ onFilesSelected }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, staggerChildren: 0.1 }}
-          className="relative z-10 space-y-4 sm:space-y-6"
+          className="relative z-10 space-y-3 sm:space-y-4 lg:space-y-6"
         >
           {/* Enhanced Icons */}
           <motion.div 
-            className="flex justify-center space-x-3 sm:space-x-4"
+            className="flex justify-center space-x-2 sm:space-x-3 lg:space-x-4"
             variants={iconVariants}
             animate={isDragActive ? 'drag' : 'idle'}
             whileHover="hover"
@@ -172,7 +195,7 @@ const FileUpload = ({ onFilesSelected }) => {
               }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
             >
-              <DocumentIcon className="h-10 w-10 sm:h-12 sm:w-12 text-blue-500 dark:text-blue-400" />
+              <DocumentIcon className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-blue-500 dark:text-blue-400" />
             </motion.div>
             <motion.div
               animate={{ 
@@ -181,7 +204,7 @@ const FileUpload = ({ onFilesSelected }) => {
               }}
               transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
             >
-              <PhotoIcon className="h-10 w-10 sm:h-12 sm:w-12 text-purple-500 dark:text-purple-400" />
+              <PhotoIcon className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-purple-500 dark:text-purple-400" />
             </motion.div>
             <motion.div
               animate={{ 
@@ -190,7 +213,7 @@ const FileUpload = ({ onFilesSelected }) => {
               }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
             >
-              <DocumentDuplicateIcon className="h-10 w-10 sm:h-12 sm:w-12 text-green-500 dark:text-green-400" />
+              <DocumentDuplicateIcon className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-green-500 dark:text-green-400" />
             </motion.div>
           </motion.div>
 
@@ -198,152 +221,194 @@ const FileUpload = ({ onFilesSelected }) => {
           <motion.div
             animate={{
               y: isDragActive ? -10 : [0, -5, 0],
-              scale: isDragActive ? 1.2 : 1,
+              scale: isDragActive ? 1.1 : 1
             }}
             transition={{
-              y: { duration: isDragActive ? 0.2 : 2, repeat: isDragActive ? 0 : Infinity, ease: "easeInOut" },
+              y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
               scale: { duration: 0.2 }
             }}
             className="flex justify-center"
           >
-            <CloudArrowUpIcon className={`h-16 w-16 sm:h-20 sm:w-20 transition-colors duration-300 ${
-              isDragActive 
-                ? 'text-blue-600 dark:text-blue-400' 
-                : selectedFiles.length > 0 
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-gray-400 dark:text-gray-600'
+            <CloudArrowUpIcon className={`h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 transition-colors duration-300 ${
+              isDragActive ? 'text-blue-600 dark:text-blue-400' : 
+              selectedFiles.length > 0 ? 'text-green-600 dark:text-green-400' : 
+              'text-gray-400 dark:text-gray-500'
             }`} />
           </motion.div>
-          
-          {/* Dynamic Text */}
-          <motion.div
-            key={selectedFiles.length + (isDragActive ? 'drag' : 'idle')}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="text-lg sm:text-xl font-medium text-gray-700 dark:text-gray-300">
-            {isDragActive ? (
-                <motion.span
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 0.5, repeat: Infinity }}
-                  className="text-blue-600 dark:text-blue-400"
-                >
-                  Drop your documents here...
-                </motion.span>
-            ) : (
-              selectedFiles.length === 0 
-                ? "Upload your documents (max 2 files)"
-                : selectedFiles.length === 1
-                  ? "Add one more document for comparison"
-                  : "Documents ready for comparison"
-            )}
+
+          {/* Enhanced Text */}
+          <div className="space-y-2 sm:space-y-3">
+            <motion.h3 
+              className={`text-base sm:text-lg lg:text-xl font-semibold transition-colors duration-300 ${
+                isDragActive ? 'text-blue-700 dark:text-blue-300' : 
+                selectedFiles.length > 0 ? 'text-green-700 dark:text-green-300' : 
+                'text-gray-700 dark:text-gray-300'
+              }`}
+              animate={{
+                scale: isDragActive ? 1.05 : 1
+              }}
+            >
+              {isDragActive 
+                ? 'Drop files here!' 
+                : selectedFiles.length > 0 
+                  ? `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} selected`
+                  : 'Upload Documents'
+              }
+            </motion.h3>
+            
+            <motion.p 
+              className={`text-xs sm:text-sm lg:text-base transition-colors duration-300 ${
+                isDragActive ? 'text-blue-600 dark:text-blue-400' : 
+                selectedFiles.length > 0 ? 'text-green-600 dark:text-green-400' : 
+                'text-gray-500 dark:text-gray-400'
+              }`}
+              animate={{
+                opacity: isDragActive ? 0.8 : 1
+              }}
+            >
+              {selectedFiles.length > 0 
+                ? 'Click to change files or add another for comparison'
+                : 'Drag & drop files here, or click to browse'
+              }
+            </motion.p>
+
+            {/* File format indicators for mobile */}
+            <div className="block sm:hidden">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                PDF, Word, Images, Excel & more
+              </p>
+            </div>
+
+            {/* File format indicators for desktop */}
+            <div className="hidden sm:block">
+              <motion.div 
+                className="flex flex-wrap justify-center gap-1 sm:gap-2 mt-2 sm:mt-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: selectedFiles.length > 0 ? 0.7 : 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {['PDF', 'DOC', 'XLS', 'JPG', 'PNG', 'TXT'].map((format, index) => (
+                  <motion.span
+                    key={format}
+                    className={`text-xs px-2 py-1 rounded-full border transition-colors duration-300 ${
+                      isDragActive ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 text-blue-700 dark:text-blue-300' :
+                      selectedFiles.length > 0 ? 'bg-green-100 dark:bg-green-900/30 border-green-300 text-green-700 dark:text-green-300' :
+                      'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
+                    }`}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    {format}
+                  </motion.span>
+                ))}
+              </motion.div>
+            </div>
           </div>
-          </motion.div>
-          
+
+          {/* Size limit indicator */}
           <motion.p 
-            className="text-sm text-gray-500 dark:text-gray-400"
-            animate={{ opacity: isDragActive ? 0.5 : 1 }}
+            className="text-xs text-gray-400 dark:text-gray-500"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
           >
-            Drag & drop files here or click to select
-          </motion.p>
-          
-          <motion.p 
-            className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed px-2"
-            animate={{ opacity: isDragActive ? 0.3 : 1 }}
-          >
-            Supported formats: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, ODS, ODP, TXT, RTF, CSV, HTML, XML, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP (Max 16MB each)
+            Max file size: 16MB each • Max 2 files
           </motion.p>
         </motion.div>
-
-        {/* Progress indicator */}
-        {selectedFiles.length > 0 && (
-          <motion.div
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-b-2xl origin-left"
-          />
-        )}
       </motion.div>
 
-      {/* Enhanced File List */}
+      {/* Selected Files Display */}
       <AnimatePresence>
         {selectedFiles.length > 0 && (
-          <motion.div 
-            className="mt-4 sm:mt-6"
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
+            className="mt-4 space-y-2 sm:space-y-3"
           >
-            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-              <div className="flex items-center space-x-2 mb-3">
-                <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Selected files ({selectedFiles.length}/2):
-                </p>
-              </div>
-              <div className="space-y-2">
-                {selectedFiles.map((file, index) => {
-                  const FileIcon = getFileIcon(file.name)
-                  return (
-                    <motion.div
-                      key={index}
-                      variants={fileVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="flex items-center justify-between p-3 bg-white/80 dark:bg-gray-700/80 rounded-lg border border-gray-200/50 dark:border-gray-600/50 group hover:shadow-md transition-all duration-200"
-                      whileHover={{ scale: 1.02, x: 5 }}
-                    >
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: 5 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <FileIcon className="w-6 h-6 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-                        </motion.div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
-                      </div>
+            <h4 className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300">
+              Selected Files:
+            </h4>
+            <div className="space-y-2">
+              {selectedFiles.map((file, index) => {
+                const IconComponent = getFileIcon(file.name)
+                return (
+                  <motion.div
+                    key={`${file.name}-${index}`}
+                    variants={fileVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className="flex items-center justify-between p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <motion.div
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.2 }}
+                        whileHover={{ scale: 1.1, rotate: 5 }}
                         className="flex-shrink-0"
                       >
-                        <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                        <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 dark:text-blue-400" />
                       </motion.div>
-                    </motion.div>
-                  )
-                })}
-              </div>
-              
-              {selectedFiles.length === 1 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="mt-3 p-3 bg-blue-50/80 dark:bg-blue-900/20 rounded-lg border border-blue-200/50 dark:border-blue-700/50"
-                >
-                  <div className="flex items-center space-x-2">
-                    <ExclamationTriangleIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      Add another file to enable document comparison features
-                    </p>
-                  </div>
-                </motion.div>
-              )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Success indicator */}
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <CheckCircleIcon className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
+                      </motion.div>
+                      
+                      {/* Remove button */}
+                      <motion.button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeFile(index)
+                        }}
+                        className="p-1 sm:p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+
+            {/* Mobile help text */}
+            <div className="block sm:hidden">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                Tap the upload area above to add more files (max 2)
+              </p>
             </div>
           </motion.div>
-          )}
+        )}
       </AnimatePresence>
+
+      {/* Mobile optimized helper text */}
+      <motion.div 
+        className="block sm:hidden mt-3 text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+      >
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Supports PDF, Word, Excel, PowerPoint, Images & more
+        </p>
+      </motion.div>
     </div>
   )
 }

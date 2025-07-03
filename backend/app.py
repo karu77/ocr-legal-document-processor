@@ -20,8 +20,7 @@ from utils.ocr_processor import (
     perform_ocr_with_lang_detect
 )
 from utils.gemini_client import GeminiClient
-# from utils.database import db_manager
-from bson import ObjectId
+
 import json
 
 # Load environment variables
@@ -61,12 +60,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Initialize database
-# try:
-#     db = db_manager.get_db()
-# except:
-#     print("⚠️  Database connection failed")
-#     db = None
+
 
 # Initialize Gemini Client
 gemini_client = GeminiClient()

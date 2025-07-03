@@ -4,6 +4,11 @@ import json
 from typing import Dict, Any, Optional, List
 import time
 import re
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Gemini API client for text processing
 
@@ -13,104 +18,52 @@ class GeminiClient:
     """
     
     def __init__(self):
-        self.api_key = os.getenv('GEMINI_API_KEY')
+        """Initialize Gemini API client"""
+        api_key = os.getenv('GEMINI_API_KEY')
         
-        if not self.api_key or self.api_key == "your_gemini_api_key_here":
-            print("⚠️  GEMINI_API_KEY not set or using placeholder. Using fallback processing.")
-            print("   Please set your Gemini API key in the .env file for full AI functionality.")
-            self.api_key = None  # Set to None to disable API calls
+        if not api_key:
+            print("[INFO] No Gemini API key found. Using local NLP processing.")
+            self.model = None
+            return
+        
+        try:
+            # Configure the library
+            genai.configure(api_key=api_key)
             
-        # Initialize API settings
-        self.api_url = "https://generativelanguage.googleapis.com/v1beta/models"
-        self.model = "gemini-pro"
-        self.headers = {
-            'Content-Type': 'application/json',
-        }
-        self.timeout = 30  # seconds
-        print("✅ Gemini API client initialized")
+            # Initialize the model
+            self.model = genai.GenerativeModel('gemini-pro')
+            
+            # Test the connection
+            response = self.model.generate_content("Test connection")
+            if response:
+                print("[OK] Gemini API client initialized")
+            else:
+                print("[WARNING] Could not verify Gemini API connection")
+                self.model = None
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to initialize Gemini API: {str(e)}")
+            self.model = None
         
     def _make_request(self, prompt: str, max_retries: int = 3) -> str:
         """
         Make a request to the Gemini API with retry logic
         """
-        if not self.api_key:
-            return None  # Return None if no API key available
+        if not self.model:
+            return None  # Return None if no model available
             
-        url = f"{self.api_url}/{self.model}:generateContent?key={self.api_key}"
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.1,
-                "topK": 32,
-                "topP": 1,
-                "maxOutputTokens": 4096,
-            },
-            "safetySettings": [
-                {
-                    "category": "HARM_CATEGORY_HARASSMENT",
-                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-                },
-                {
-                    "category": "HARM_CATEGORY_HATE_SPEECH",
-                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-                },
-                {
-                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-                },
-                {
-                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-                }
-            ]
-        }
-        
-        for attempt in range(max_retries):
-            try:
-                response = requests.post(
-                    url, 
-                    headers=self.headers, 
-                    json=payload, 
-                    timeout=self.timeout
-                )
-                response.raise_for_status()
+        try:
+            response = self.model.generate_content(prompt)
+            
+            if response and response.text:
+                return response.text.strip()
+            else:
+                print("[WARNING] Empty response from Gemini API")
+                return None
                 
-                data = response.json()
-                
-                if 'candidates' in data and len(data['candidates']) > 0:
-                    if 'content' in data['candidates'][0]:
-                        parts = data['candidates'][0]['content']['parts']
-                        if parts and 'text' in parts[0]:
-                            return parts[0]['text'].strip()
-                
-                # Handle blocked content or other issues
-                if 'candidates' in data and len(data['candidates']) > 0:
-                    if 'finishReason' in data['candidates'][0]:
-                        reason = data['candidates'][0]['finishReason']
-                        if reason == 'SAFETY':
-                            raise Exception("Content was blocked due to safety concerns")
-                        elif reason == 'RECITATION':
-                            raise Exception("Content was blocked due to recitation concerns")
-                
-                raise Exception("No valid response received from Gemini API")
-                
-            except requests.exceptions.RequestException as e:
-                if attempt == max_retries - 1:
-                    raise Exception(f"Failed to connect to Gemini API after {max_retries} attempts: {str(e)}")
-                time.sleep(2 ** attempt)  # Exponential backoff
-                
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise Exception(f"Gemini API error: {str(e)}")
-                time.sleep(1)
+        except Exception as e:
+            print(f"[ERROR] Gemini API processing failed: {str(e)}")
+            return None
         
     def cleanup_text(self, text: str) -> str:
         """Clean up and format the text"""
@@ -168,35 +121,28 @@ class GeminiClient:
             
         try:
             prompt = f"""
-            Provide a comprehensive summary of the following text, focusing on key legal points and important details. The summary and all headings MUST be in the same language as the original text.
+            Create a comprehensive narrative summary of the following text. The summary should be in paragraph form and tell a complete story of the document's content.
             ---
             {text}
             ---
             Instructions:
-            1. Create an executive summary in 2-3 paragraphs.
-            2. Focus on key legal points, obligations, and requirements.
-            3. Highlight important dates, deadlines, and conditions.
-            4. Include critical financial or numerical information.
-            5. Mention all involved parties and their roles.
-            6. Summarize main agreements or decisions.
-            7. Note any special conditions or exceptions.
-            8. Maintain a formal tone appropriate for the source text.
-            9. Structure the summary with clear sections.
-            10. End with key takeaways or action items.
+            1. Write a flowing narrative in 2-3 well-structured paragraphs
+            2. Focus on the overall context and big picture
+            3. Explain relationships between different parts of the content
+            4. Use transitional phrases to connect ideas
+            5. Maintain chronological or logical flow
+            6. Include the most significant details only
+            7. Write in a professional, objective tone
+            8. Keep the same language as the source text
+            9. Avoid bullet points or lists
+            10. End with a concluding statement
 
-            Format the output using the following structure, with headings translated into the language of the source text:
+            Format:
+            [First paragraph introducing the main topic and context]
 
-            Executive Summary
-            [2-3 paragraphs of main summary]
+            [Second paragraph developing the key points and their relationships]
 
-            Key Points
-            • [Bullet points of critical information]
-
-            Parties & Roles
-            • [List of involved parties and their responsibilities]
-
-            Action Items
-            • [List of required actions or next steps]
+            [Final paragraph with conclusions and implications]
             """
             
             summary = self._make_request(prompt)
@@ -207,7 +153,6 @@ class GeminiClient:
             
         except Exception as e:
             print(f"Error in summarize_text: {e}")
-            # Return a basic summary if AI fails
             sentences = text.split('.')[:5]
             return '. '.join([s.strip() for s in sentences if s.strip()]) + '.'
 
@@ -218,36 +163,38 @@ class GeminiClient:
             
         try:
             prompt = f"""
-            Extract and organize the key points from the following text into clear, concise bullet points. The bullet points and all headings MUST be in the same language as the original text.
+            Extract specific, actionable key points from the text and present them in a structured bullet-point format. Focus on facts, figures, and concrete details rather than general summaries.
             ---
             {text}
             ---
             Instructions:
-            1. Identify the most important information and key facts.
-            2. Create clear, actionable bullet points.
-            3. Group related information together.
-            4. Use professional language.
-            5. Include specific details like dates, amounts, and names.
-            6. Organize by priority or logical flow.
-            7. Keep each bullet point concise but complete.
-            8. Use consistent formatting.
-            9. Focus on actionable items and key decisions.
-            10. Highlight critical deadlines or requirements.
+            1. Extract ONLY specific facts, numbers, dates, and concrete details
+            2. Each point should be a single, specific piece of information
+            3. Avoid general summaries or interpretations
+            4. Include exact quotes where relevant
+            5. Organize points by category
+            6. Use precise language
+            7. Keep the same language as the source text
+            8. Format each point as a complete statement
+            9. Include source context where necessary
+            10. Separate different types of information
 
-            Format the output using the following structure, with headings translated into the language of the source text:
+            Format:
 
-            Key Points
-            • [Most important point]
-            • [Second most important point]
-            • [Continue with remaining points]
+            Facts & Figures
+            • [Specific numerical data point]
+            • [Exact date or timeline]
+            • [Precise measurement or quantity]
 
-            Details & Specifications
-            • [Specific details, numbers, dates]
-            • [Technical requirements or conditions]
+            Key Details
+            • [Specific requirement or condition]
+            • [Exact quote or reference]
+            • [Concrete example]
 
-            Action Items
-            • [Required actions or next steps]
-            • [Deadlines and responsibilities]
+            Important References
+            • [Specific document reference]
+            • [Named entity or citation]
+            • [Cross-reference or link]
             """
             
             bullet_points = self._make_request(prompt)
@@ -258,7 +205,6 @@ class GeminiClient:
             
         except Exception as e:
             print(f"Error in generate_bullet_points: {e}")
-            # Return a basic extraction if AI fails
             sentences = text.split('.')[:5]
             return '\n'.join([f"• {s.strip()}" for s in sentences if s.strip()])
 

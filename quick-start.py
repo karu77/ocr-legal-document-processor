@@ -6,299 +6,191 @@ This script does everything automatically: setup, checks, and starts the applica
 
 import os
 import sys
-import subprocess
 import platform
+import subprocess
 import time
 import webbrowser
+import logging
 from pathlib import Path
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('quickstart.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
     PURPLE = '\033[95m'
     CYAN = '\033[96m'
-    WHITE = '\033[97m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
     BOLD = '\033[1m'
+    WHITE = '\033[37m'
     END = '\033[0m'
 
-class QuickStart:
-    def __init__(self):
-        self.system = platform.system().lower()
-        
-    def print_banner(self):
-        """Print welcome banner"""
-        print(f"{Colors.PURPLE}{Colors.BOLD}")
-        print("╔" + "═" * 68 + "╗")
-        print("║" + " " * 68 + "║")
-        print("║" + "  🚀 OCR LEGAL DOCUMENT PROCESSOR - QUICK START  🚀  ".center(68) + "║")
-        print("║" + " " * 68 + "║")
-        print("║" + "  One-click setup and launch for your AI document processor  ".center(68) + "║")
-        print("║" + " " * 68 + "║")
-        print("╚" + "═" * 68 + "╝")
-        print(f"{Colors.END}\n")
-        
-        print(f"{Colors.WHITE}This script will:{Colors.END}")
-        print(f"{Colors.CYAN}  ✅ Check all system requirements{Colors.END}")
-        print(f"{Colors.CYAN}  ✅ Install dependencies automatically{Colors.END}")
-        print(f"{Colors.CYAN}  ✅ Set up the environment{Colors.END}")
-        print(f"{Colors.CYAN}  ✅ Start both servers{Colors.END}")
-        print(f"{Colors.CYAN}  ✅ Open the application in your browser{Colors.END}")
-        print()
-
-    def check_prerequisites(self):
-        """Quick check of basic prerequisites"""
-        print(f"{Colors.BLUE}🔍 Quick Prerequisites Check...{Colors.END}")
-        
-        issues = []
-        
-        # Check Python version
-        version = sys.version_info
-        if version.major < 3 or (version.major == 3 and version.minor < 8):
-            issues.append(f"Python 3.8+ required (found {version.major}.{version.minor})")
+def run_command(cmd, cwd=None):
+    """Run a command and handle errors"""
+    try:
+        if platform.system().lower() == 'windows':
+            result = subprocess.run(cmd, shell=True, cwd=cwd, text=True, capture_output=True)
         else:
-            print(f"{Colors.GREEN}  ✅ Python {version.major}.{version.minor}.{version.micro}{Colors.END}")
+            result = subprocess.run(cmd, shell=True, cwd=cwd, text=True, capture_output=True)
         
-        # Check Node.js
-        try:
-            result = subprocess.run(['node', '--version'], capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"{Colors.GREEN}  ✅ Node.js {result.stdout.strip()}{Colors.END}")
-            else:
-                issues.append("Node.js not working properly")
-        except FileNotFoundError:
-            issues.append("Node.js not installed")
-        
-        # Check Tesseract
-        try:
-            result = subprocess.run(['tesseract', '--version'], capture_output=True, text=True)
-            if result.returncode == 0:
-                version_line = result.stdout.split('\n')[0]
-                print(f"{Colors.GREEN}  ✅ {version_line}{Colors.END}")
-            else:
-                issues.append("Tesseract OCR not working")
-        except FileNotFoundError:
-            issues.append("Tesseract OCR not installed")
-        
-        if issues:
-            print(f"\n{Colors.RED}❌ Prerequisites Issues Found:{Colors.END}")
-            for issue in issues:
-                print(f"{Colors.RED}  • {issue}{Colors.END}")
-            print(f"\n{Colors.YELLOW}Please install missing prerequisites first:{Colors.END}")
-            print(f"{Colors.WHITE}  • Python 3.8+: https://www.python.org/downloads/{Colors.END}")
-            print(f"{Colors.WHITE}  • Node.js 16+: https://nodejs.org/{Colors.END}")
-            print(f"{Colors.WHITE}  • Tesseract OCR: See GETTING_STARTED.md for installation{Colors.END}")
+        if result.returncode != 0:
+            print(f"{Colors.RED}Command failed with error: {result.stderr}{Colors.END}")
             return False
-        
-        print(f"{Colors.GREEN}  🎉 All prerequisites satisfied!{Colors.END}\n")
         return True
+    except Exception as e:
+        print(f"{Colors.RED}Error running command: {str(e)}{Colors.END}")
+        return False
 
-    def run_setup(self):
-        """Run the automated setup script"""
-        print(f"{Colors.BLUE}⚙️ Running Automated Setup...{Colors.END}")
-        
-        setup_script = Path('setup.py')
-        if not setup_script.exists():
-            print(f"{Colors.RED}❌ setup.py not found. Please ensure you're in the project directory.{Colors.END}")
+def setup_backend():
+    """Set up the backend environment"""
+    print(f"{Colors.BLUE}Setting up backend...{Colors.END}")
+    
+    # Create and activate virtual environment
+    if not os.path.exists('backend/venv'):
+        print(f"{Colors.WHITE}Creating virtual environment...{Colors.END}")
+        if not run_command('python -m venv venv', cwd='backend'):
             return False
-        
-        try:
-            # Run setup script
-            result = subprocess.run([sys.executable, 'setup.py'], check=True)
-            print(f"{Colors.GREEN}✅ Setup completed successfully!{Colors.END}\n")
-            return True
-        except subprocess.CalledProcessError as e:
-            print(f"{Colors.RED}❌ Setup failed with exit code {e.returncode}{Colors.END}")
-            print(f"{Colors.YELLOW}Try running 'python setup.py' manually for more details.{Colors.END}")
+    
+    # Install dependencies using the full path to pip
+    print(f"{Colors.WHITE}Installing Python dependencies...{Colors.END}")
+    if platform.system().lower() == 'windows':
+        if not run_command('.\\venv\\Scripts\\python.exe -m pip install -r requirements.txt', cwd='backend'):
             return False
-
-    def start_servers(self):
-        """Start both backend and frontend servers"""
-        print(f"{Colors.BLUE}🚀 Starting Servers...{Colors.END}")
-        
-        # Check if startup scripts exist
-        if self.system == 'windows':
-            startup_script = 'start-dev.bat'
-        else:
-            startup_script = 'start-dev.sh'
-        
-        if not os.path.exists(startup_script):
-            print(f"{Colors.RED}❌ Startup script {startup_script} not found{Colors.END}")
-            return self.manual_server_start()
-        
-        try:
-            print(f"{Colors.YELLOW}  📡 Starting backend server...{Colors.END}")
-            print(f"{Colors.YELLOW}  ⚛️ Starting frontend server...{Colors.END}")
-            print(f"{Colors.YELLOW}  ⏳ Please wait for servers to initialize...{Colors.END}")
-            
-            # Start servers using the appropriate script
-            if self.system == 'windows':
-                subprocess.Popen(['cmd', '/c', startup_script], shell=True)
-            else:
-                subprocess.Popen(['bash', startup_script])
-            
-            # Wait for servers to start
-            print(f"{Colors.CYAN}  ⏱️ Waiting for servers to start (30 seconds)...{Colors.END}")
-            
-            # Check if servers are responding
-            for i in range(30):
-                time.sleep(1)
-                if self.check_servers():
-                    print(f"{Colors.GREEN}  ✅ Servers are running!{Colors.END}")
-                    return True
-                if i % 5 == 0:
-                    print(f"{Colors.CYAN}  ⏳ Still waiting... ({30-i}s remaining){Colors.END}")
-            
-            print(f"{Colors.YELLOW}  ⚠️ Servers taking longer than expected to start{Colors.END}")
-            print(f"{Colors.WHITE}  Please check the terminal windows for any error messages{Colors.END}")
-            return True  # Continue anyway
-            
-        except Exception as e:
-            print(f"{Colors.RED}❌ Failed to start servers: {e}{Colors.END}")
-            return self.manual_server_start()
-
-    def manual_server_start(self):
-        """Provide manual server start instructions"""
-        print(f"{Colors.YELLOW}📋 Manual Server Start Instructions:{Colors.END}")
-        print(f"{Colors.WHITE}  Open two terminal windows and run:{Colors.END}")
-        print()
-        print(f"{Colors.CYAN}  Terminal 1 (Backend):{Colors.END}")
-        print(f"{Colors.WHITE}    cd backend{Colors.END}")
-        if self.system == 'windows':
-            print(f"{Colors.WHITE}    venv\\Scripts\\activate{Colors.END}")
-        else:
-            print(f"{Colors.WHITE}    source venv/bin/activate{Colors.END}")
-        print(f"{Colors.WHITE}    python app.py{Colors.END}")
-        print()
-        print(f"{Colors.CYAN}  Terminal 2 (Frontend):{Colors.END}")
-        print(f"{Colors.WHITE}    cd frontend{Colors.END}")
-        print(f"{Colors.WHITE}    npm run dev{Colors.END}")
-        print()
-        return True
-
-    def check_servers(self):
-        """Check if servers are responding"""
-        try:
-            import urllib.request
-            
-            # Check backend
-            try:
-                urllib.request.urlopen('http://localhost:5000/health', timeout=2)
-                backend_ok = True
-            except:
-                backend_ok = False
-            
-            # Check frontend
-            try:
-                urllib.request.urlopen('http://localhost:3000', timeout=2)
-                frontend_ok = True
-            except:
-                frontend_ok = False
-            
-            return backend_ok and frontend_ok
-        except:
+    else:
+        if not run_command('./venv/bin/pip install -r requirements.txt', cwd='backend'):
             return False
+    
+    return True
 
-    def open_browser(self):
-        """Open the application in the default browser"""
-        print(f"{Colors.BLUE}🌐 Opening Application...{Colors.END}")
-        
-        url = 'http://localhost:3000'
-        
-        try:
-            webbrowser.open(url)
-            print(f"{Colors.GREEN}  ✅ Application opened in your default browser{Colors.END}")
-            print(f"{Colors.CYAN}  🔗 URL: {url}{Colors.END}")
-        except Exception as e:
-            print(f"{Colors.YELLOW}  ⚠️ Could not open browser automatically: {e}{Colors.END}")
-            print(f"{Colors.WHITE}  Please manually open: {url}{Colors.END}")
+def setup_frontend():
+    """Set up the frontend environment"""
+    print(f"{Colors.BLUE}Setting up frontend...{Colors.END}")
+    
+    print(f"{Colors.WHITE}Installing Node.js dependencies...{Colors.END}")
+    if not run_command('npm install --yes', cwd='frontend'):
+        return False
+    
+    return True
 
-    def print_success_message(self):
-        """Print final success message and instructions"""
-        print(f"\n{Colors.GREEN}{Colors.BOLD}")
-        print("╔" + "═" * 68 + "╗")
-        print("║" + " " * 68 + "║")
-        print("║" + "  🎉 SUCCESS! YOUR OCR PROCESSOR IS READY!  🎉  ".center(68) + "║")
-        print("║" + " " * 68 + "║")
-        print("╚" + "═" * 68 + "╝")
-        print(f"{Colors.END}")
-        
-        print(f"{Colors.WHITE}Your OCR Legal Document Processor is now running:{Colors.END}")
-        print(f"{Colors.CYAN}  🌐 Frontend: http://localhost:3000{Colors.END}")
-        print(f"{Colors.CYAN}  🔧 Backend:  http://localhost:5000{Colors.END}")
-        print()
-        
-        print(f"{Colors.WHITE}Next steps:{Colors.END}")
-        print(f"{Colors.GREEN}  1. Upload a document (PDF or image){Colors.END}")
-        print(f"{Colors.GREEN}  2. Click 'Extract Text (OCR)' to process it{Colors.END}")
-        print(f"{Colors.GREEN}  3. Try translation, summarization, and other AI features{Colors.END}")
-        print(f"{Colors.GREEN}  4. Compare documents using the comparison feature{Colors.END}")
-        print()
-        
-        print(f"{Colors.WHITE}Performance tips:{Colors.END}")
-        print(f"{Colors.CYAN}  📊 Run 'python benchmark.py' to test your system performance{Colors.END}")
-        print(f"{Colors.CYAN}  📖 Check 'PERFORMANCE_GUIDE.md' for optimization tips{Colors.END}")
-        print(f"{Colors.CYAN}  🎮 Consider GPU acceleration for 10-20x speed improvement{Colors.END}")
-        print()
-        
-        print(f"{Colors.WHITE}Need help?{Colors.END}")
-        print(f"{Colors.CYAN}  🔧 Run 'python check-system.py' for diagnostics{Colors.END}")
-        print(f"{Colors.CYAN}  📚 Read 'GETTING_STARTED.md' for detailed instructions{Colors.END}")
-        print(f"{Colors.CYAN}  🐛 Check the terminal windows for any error messages{Colors.END}")
+def start_servers():
+    """Start both backend and frontend servers in separate processes"""
+    print(f"{Colors.GREEN}Starting servers...{Colors.END}")
+    
+    # Start backend server in a separate process
+    print(f"{Colors.WHITE}Starting backend server...{Colors.END}")
+    if platform.system().lower() == 'windows':
+        backend_cmd = '.\\venv\\Scripts\\python.exe run_backend.py'
+        # Start in a new command prompt window
+        backend_process = subprocess.Popen(
+            f'start "OCR Backend Server" cmd /k "cd /d {os.path.abspath("backend")} && {backend_cmd}"',
+            shell=True,
+            cwd='backend'
+        )
+    else:
+        backend_cmd = './venv/bin/python run_backend.py'
+        backend_process = subprocess.Popen(
+            backend_cmd,
+            shell=True,
+            cwd='backend'
+        )
+    
+    # Give backend server time to start
+    print(f"{Colors.WHITE}Waiting for backend server to start...{Colors.END}")
+    time.sleep(5)
+    
+    # Start frontend server in a separate process
+    print(f"{Colors.WHITE}Starting frontend server...{Colors.END}")
+    if platform.system().lower() == 'windows':
+        # Start in a new command prompt window
+        frontend_process = subprocess.Popen(
+            f'start "OCR Frontend Server" cmd /k "cd /d {os.path.abspath("frontend")} && npm run dev"',
+            shell=True,
+            cwd='frontend'
+        )
+    else:
+        frontend_process = subprocess.Popen(
+            'npm run dev',
+            shell=True,
+            cwd='frontend'
+        )
+    
+    # Give frontend server time to start
+    print(f"{Colors.WHITE}Waiting for frontend server to start...{Colors.END}")
+    time.sleep(3)
+    
+    return True
 
-    def handle_error(self, step_name, error):
-        """Handle errors gracefully"""
-        print(f"\n{Colors.RED}❌ Error in {step_name}: {error}{Colors.END}")
-        print(f"{Colors.YELLOW}Don't worry! You can still proceed manually:{Colors.END}")
-        print()
-        print(f"{Colors.WHITE}1. Run diagnostics: python check-system.py{Colors.END}")
-        print(f"{Colors.WHITE}2. Try manual setup: python setup.py{Colors.END}")
-        print(f"{Colors.WHITE}3. Check the documentation in README.md{Colors.END}")
-        print(f"{Colors.WHITE}4. Start servers manually (see instructions above){Colors.END}")
-
-    def run(self):
-        """Run the complete quick start process"""
-        self.print_banner()
-        
-        # Get user confirmation
-        try:
-            response = input(f"{Colors.YELLOW}Press Enter to continue or Ctrl+C to cancel...{Colors.END}")
-        except KeyboardInterrupt:
-            print(f"\n{Colors.RED}❌ Quick start cancelled by user{Colors.END}")
-            return
-        
-        print()
-        
-        try:
-            # Step 1: Prerequisites check
-            if not self.check_prerequisites():
-                return
-            
-            # Step 2: Run automated setup
-            if not self.run_setup():
-                print(f"{Colors.YELLOW}⚠️ Setup had issues, but continuing...{Colors.END}")
-            
-            # Step 3: Start servers
-            if not self.start_servers():
-                print(f"{Colors.YELLOW}⚠️ Server startup had issues, please check manually{Colors.END}")
-            
-            # Step 4: Open browser
-            time.sleep(3)  # Give servers a moment to fully start
-            self.open_browser()
-            
-            # Step 5: Success message
-            self.print_success_message()
-            
-        except KeyboardInterrupt:
-            print(f"\n{Colors.RED}❌ Quick start interrupted by user{Colors.END}")
-        except Exception as e:
-            self.handle_error("Quick Start", str(e))
+def print_banner():
+    """Print welcome banner"""
+    print(f"{Colors.PURPLE}{Colors.BOLD}")
+    print("╔" + "═" * 68 + "╗")
+    print("║" + " " * 68 + "║")
+    print("║" + "  >> OCR LEGAL DOCUMENT PROCESSOR - QUICK START <<  ".center(68) + "║")
+    print("║" + " " * 68 + "║")
+    print("║" + "  AI-powered document processing for ALL devices! 📱💻  ".center(68) + "║")
+    print("║" + " " * 68 + "║")
+    print("╚" + "═" * 68 + "╝")
+    print(f"{Colors.END}\n")
+    
+    print(f"{Colors.GREEN}🎉 NOW WITH FULL MOBILE SUPPORT! 📱{Colors.END}")
+    print(f"{Colors.CYAN}  ✨ Fully responsive design for phones, tablets & desktop{Colors.END}")
+    print(f"{Colors.CYAN}  🚀 Progressive Web App (PWA) - install like a native app{Colors.END}")
+    print(f"{Colors.CYAN}  ⚡ Touch-optimized interface with offline capability{Colors.END}")
+    print()
+    
+    print(f"{Colors.WHITE}This script will:{Colors.END}")
+    print(f"{Colors.CYAN}  [+] Check all system requirements{Colors.END}")
+    print(f"{Colors.CYAN}  [+] Install dependencies automatically{Colors.END}")
+    print(f"{Colors.CYAN}  [+] Set up PWA and mobile features{Colors.END}")
+    print(f"{Colors.CYAN}  [+] Start both servers{Colors.END}")
+    print(f"{Colors.CYAN}  [+] Open the application in your browser{Colors.END}")
+    print()
 
 def main():
     """Main entry point"""
-    quick_start = QuickStart()
-    quick_start.run()
+    print_banner()
+    
+    if not setup_backend():
+        print(f"{Colors.RED}[X] Backend setup failed{Colors.END}")
+        sys.exit(1)
+    
+    if not setup_frontend():
+        print(f"{Colors.RED}[X] Frontend setup failed{Colors.END}")
+        sys.exit(1)
+    
+    if not start_servers():
+        print(f"{Colors.RED}[X] Failed to start servers{Colors.END}")
+        sys.exit(1)
+    
+    print(f"{Colors.GREEN}[+] Setup complete! The application is now running.{Colors.END}")
+    print(f"{Colors.WHITE}Frontend: http://localhost:3000{Colors.END}")
+    print(f"{Colors.WHITE}Backend: http://localhost:5000{Colors.END}")
+    print()
+    print(f"{Colors.GREEN}📱 MOBILE ACCESS:{Colors.END}")
+    print(f"{Colors.CYAN}  • Desktop: http://localhost:3000{Colors.END}")
+    print(f"{Colors.CYAN}  • Mobile: http://[your-ip]:3000 (find your IP in network settings){Colors.END}")
+    print(f"{Colors.CYAN}  • PWA: Use 'Add to Home Screen' for native app experience{Colors.END}")
+    print()
+    print(f"{Colors.YELLOW}[!] Two new command prompt windows have been opened for the servers.{Colors.END}")
+    print(f"{Colors.YELLOW}[!] To stop the application, close both server windows.{Colors.END}")
+    print()
+    print(f"{Colors.WHITE}Opening application in your browser...{Colors.END}")
+    
+    # Wait a bit more for servers to fully start, then open browser
+    time.sleep(5)
+    try:
+        webbrowser.open('http://localhost:3000')
+    except:
+        print(f"{Colors.YELLOW}[!] Could not open browser automatically. Please visit: http://localhost:3000{Colors.END}")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 

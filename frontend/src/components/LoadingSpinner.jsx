@@ -45,14 +45,14 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
-      className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8 border border-gray-200 dark:border-gray-700 text-center flex flex-col items-center justify-center"
+      className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-200 dark:border-gray-700 text-center flex flex-col items-center justify-center max-w-sm mx-auto"
     >
-      <div className="relative mb-6">
+      <div className="relative mb-4 sm:mb-6">
         {/* Outer spinning ring */}
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-          className="w-24 h-24 rounded-full border-4 border-transparent"
+          className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full border-4 border-transparent"
           style={{
             background: `conic-gradient(from 0deg, transparent, var(--tw-gradient-from) 20%, transparent)`
           }}
@@ -62,18 +62,18 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
         <motion.div
           animate={{ scale: [1, 1.05, 1] }}
           transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          className={`absolute inset-2 w-20 h-20 rounded-full bg-gradient-to-r ${gradientColor} flex items-center justify-center shadow-lg`}
+          className={`absolute inset-1 sm:inset-2 w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full bg-gradient-to-r ${gradientColor} flex items-center justify-center shadow-lg`}
         >
-          <OperationIcon className="w-10 h-10 text-white" />
+          <OperationIcon className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 text-white" />
         </motion.div>
       </div>
 
       {/* Message and Operation Details */}
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-1 sm:space-y-2">
         <motion.h3 
           animate={{ opacity: [0.8, 1, 0.8] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="text-2xl font-bold text-gray-900 dark:text-gray-100"
+          className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100"
         >
           {message}
         </motion.h3>
@@ -83,7 +83,7 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
-            className="text-md text-gray-600 dark:text-gray-400 font-medium"
+            className="text-sm sm:text-base text-gray-600 dark:text-gray-400 font-medium"
           >
             {operation}
           </motion.p>
@@ -92,14 +92,14 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
         <motion.p 
           animate={{ opacity: [0.4, 0.8, 0.4] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-          className="text-sm text-gray-500 dark:text-gray-500"
+          className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 leading-relaxed"
         >
           {operation?.includes('Translation') ? 'Translation in progress... Large texts are processed in chunks for better performance.' : 'This may take a few moments...'}
         </motion.p>
       </div>
 
       {/* Simple pulsating dots progress indicator */}
-      <div className="flex space-x-2 mt-4">
+      <div className="flex space-x-1 sm:space-x-2 mt-3 sm:mt-4">
         {[0, 1, 2].map((index) => (
           <motion.div
             key={index}
@@ -113,7 +113,7 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
               ease: "easeInOut",
               delay: index * 0.2
             }}
-            className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${gradientColor}`}
+            className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-gradient-to-r ${gradientColor}`}
           />
         ))}
       </div>
@@ -123,15 +123,15 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8, duration: 0.3 }}
-        className="flex items-center space-x-2 px-3 py-1.5 mt-6 bg-blue-50 dark:bg-blue-900 rounded-full border border-blue-200 dark:border-blue-700"
+        className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-1.5 mt-4 sm:mt-6 bg-blue-50 dark:bg-blue-900 rounded-full border border-blue-200 dark:border-blue-700"
       >
         <motion.div
           animate={{ rotate: [0, 360] }}
           transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
         >
-          <CpuChipIcon className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+          <CpuChipIcon className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-300" />
         </motion.div>
-        <span className="text-sm font-medium text-blue-700 dark:text-blue-200">
+        <span className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-200">
           AI Processing
         </span>
       </motion.div>
@@ -145,7 +145,7 @@ const LoadingSpinner = ({ message = "Processing...", operation = "" }) => {
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className={`absolute inset-0 -z-10 rounded-3xl opacity-30`}
+        className={`absolute inset-0 -z-10 rounded-2xl sm:rounded-3xl opacity-30`}
         style={{
           background: `radial-gradient(circle at center, ${gradientColor.split(' ')[0].replace('from-', 'var(--tw-gradient-from)')}, transparent 70%)`
         }}

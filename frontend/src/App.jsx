@@ -7,7 +7,6 @@ import ActionButtons from './components/ActionButtons'
 import ResultsDisplay from './components/ResultsDisplay'
 import DocumentComparison from './components/DocumentComparison'
 import LoadingSpinner from './components/LoadingSpinner'
-import AuthModal from './components/AuthModal'
 import { 
   DocumentTextIcon, 
   GlobeAltIcon, 
@@ -16,10 +15,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   SunIcon,
-  MoonIcon,
-  UserIcon,
-  ArrowRightOnRectangleIcon,
-  Cog6ToothIcon
+  MoonIcon
 } from '@heroicons/react/24/outline'
 import axios from 'axios'
 
@@ -202,10 +198,11 @@ function App() {
     detectedLanguage: null,
     ocrWarning: null,
   })
-  
-  // Authentication state
-  const [user, setUser] = useState(null)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  // Mobile-specific state
+  const [isMobile, setIsMobile] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [touchStartX, setTouchStartX] = useState(0)
+  const [touchStartY, setTouchStartY] = useState(0)
   
   // Theme state
   const [theme, setTheme] = useState(() => {
@@ -218,35 +215,6 @@ function App() {
   const yBg = useTransform(scrollY, [0, 1000], [0, -100])
   const opacityBg = useTransform(scrollY, [0, 300], [1, 0.8])
 
-  // Initialize authentication on app start
-  useEffect(() => {
-    const checkAuth = async () => {
-      const accessToken = localStorage.getItem('access_token')
-      const savedUser = localStorage.getItem('user')
-      
-      if (accessToken && savedUser) {
-        try {
-          // Set default authorization header
-          axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
-          
-          // Verify token is still valid by fetching user profile
-          const response = await axios.get('/auth/profile')
-          if (response.data.success) {
-            setUser(response.data.user)
-          } else {
-            // Token might be expired, try to refresh
-            await handleTokenRefresh()
-          }
-        } catch (error) {
-          // Token is invalid, try to refresh
-          await handleTokenRefresh()
-        }
-      }
-    }
-    
-    checkAuth()
-  }, [])
-
   // Apply theme to document element
   useEffect(() => {
     const root = window.document.documentElement
@@ -258,63 +226,87 @@ function App() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  // Toggle theme
-  const toggleTheme = useCallback(() => {
-    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'))
+  // Mobile detection and online status monitoring
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+    
+    const handleOnline = () => {
+      setIsOnline(true)
+      toast.success('Connection restored')
+    }
+    
+    const handleOffline = () => {
+      setIsOnline(false)
+      toast.error('Connection lost - Some features may be unavailable')
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
 
-  // Authentication handlers
-  const handleTokenRefresh = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refresh_token')
-      if (!refreshToken) {
-        throw new Error('No refresh token')
-      }
-      
-      const response = await axios.post('/auth/refresh', { refresh_token: refreshToken })
-      if (response.data.success) {
-        localStorage.setItem('access_token', response.data.tokens.access_token)
-        localStorage.setItem('refresh_token', response.data.tokens.refresh_token)
-        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.tokens.access_token}`
-        
-        // Get user profile
-        const profileResponse = await axios.get('/auth/profile')
-        if (profileResponse.data.success) {
-          setUser(profileResponse.data.user)
-        }
-      } else {
-        throw new Error('Token refresh failed')
-      }
-    } catch (error) {
-      // Refresh failed, clear auth data
-      handleLogout()
+  // Reset results when files change to avoid stale data
+  useEffect(() => {
+    // Don't reset if there are no files initially
+    if (files.length === 0 && !results.filename) {
+      return;
+    }
+    
+    // When files change, reset the main results but keep the list of 
+    // processed files for the comparison feature.
+    setResults(prevResults => ({
+      ...prevResults,
+      ocrText: '',
+      translatedText: '',
+      cleanedText: '',
+      summary: '',
+      bulletPoints: '',
+      comparison: null,
+      filename: files.length > 0 ? files[0].name : '',
+      detectedLanguage: null,
+      ocrWarning: null,
+    }));
+    
+    // Clear any active loading spinners or errors
+    setLoading(false);
+    setCurrentOperation('');
+    setError('');
+
+  }, [files]);
+
+  // Mobile touch gesture handlers
+  const handleTouchStart = (e) => {
+    setTouchStartX(e.touches[0].clientX)
+    setTouchStartY(e.touches[0].clientY)
+  }
+
+  const handleTouchMove = (e) => {
+    if (!touchStartX || !touchStartY) return
+    
+    const touchEndX = e.touches[0].clientX
+    const touchEndY = e.touches[0].clientY
+    
+    const diffX = touchStartX - touchEndX
+    const diffY = touchStartY - touchEndY
+    
+    // Prevent scrolling when swiping horizontally
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      e.preventDefault()
     }
   }
 
-  const handleAuthSuccess = useCallback((userData) => {
-    setUser(userData)
-    // Set axios default header
-    const accessToken = localStorage.getItem('access_token')
-    if (accessToken) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
-    }
-  }, [])
-
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('user')
-    delete axios.defaults.headers.common['Authorization']
-    setUser(null)
-    toast.success('Logged out successfully')
-  }, [])
-
-  const openAuthModal = useCallback(() => {
-    setIsAuthModalOpen(true)
-  }, [])
-
-  const closeAuthModal = useCallback(() => {
-    setIsAuthModalOpen(false)
+  // Toggle theme
+  const toggleTheme = useCallback(() => {
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'))
   }, [])
 
   // Handle file upload
@@ -389,429 +381,312 @@ function App() {
     toast.success(`Target language set to ${languageObject.name}`)
   }, [])
 
-  // Generic API call handler with better UX
+  // Generic API call handler with better UX and mobile optimization
   const makeApiCall = async (endpoint, data, successCallback, operationName) => {
+    // Check if online first
+    if (!isOnline) {
+      toast.error('You are offline. Please check your internet connection.')
+      return
+    }
+
     setLoading(true)
     setCurrentOperation(operationName)
     setError('')
+    
+    // Mobile-specific loading feedback
+    if (isMobile) {
+      toast.loading(`${operationName} in progress...`, {
+        id: 'mobile-loading',
+        duration: 0,
+      })
+    }
     
     try {
       const response = await axios.post(endpoint, data)
       if (response.data.success) {
         successCallback(response.data)
-        toast.success(`${operationName} completed successfully!`)
+        
+        // Dismiss mobile loading toast
+        if (isMobile) {
+          toast.dismiss('mobile-loading')
+        }
+        
+        toast.success(`${operationName} completed successfully!`, {
+          duration: isMobile ? 2000 : 4000,
+        })
       } else {
-        const errorMsg = response.data.error || `${operationName} failed`
-        setError(errorMsg)
-        toast.error(errorMsg)
+        throw new Error(response.data.error || `${operationName} failed`)
       }
-    } catch (err) {
-      console.error(`Error calling ${endpoint}:`, err)
-      const errorMsg = err.response?.data?.error || err.message || 'Network error occurred'
-      setError(errorMsg)
-      toast.error(errorMsg)
+    } catch (error) {
+      // Dismiss mobile loading toast
+      if (isMobile) {
+        toast.dismiss('mobile-loading')
+      }
+      
+      const errorMessage = error.response?.data?.error || error.message || `${operationName} failed`
+      setError(errorMessage)
+      
+      // Mobile-friendly error messages
+      const mobileErrorMessage = isMobile && errorMessage.length > 50 
+        ? `${errorMessage.substring(0, 50)}...` 
+        : errorMessage
+        
+      toast.error(mobileErrorMessage, {
+        duration: isMobile ? 4000 : 6000,
+      })
     } finally {
       setLoading(false)
       setCurrentOperation('')
     }
   }
 
-  // API handlers
+  // OCR Handler
   const handleOCR = async () => {
-    if (!files.length) {
-      toast.error('Please upload a file first')
+    if (files.length === 0) {
+      toast.error('Please select a file first.')
       return
     }
 
-    setLoading(true)
-    setCurrentOperation('OCR Processing')
-    setError('')
+    // Process all selected files
+    const processFile = async (file) => {
+      const data = new FormData()
+      data.append('file', file)
+
+      try {
+        const response = await axios.post('/api/process', data)
+        if (response.data.success) {
+          return {
+            name: file.name,
+            text: response.data.extracted_text,
+            detectedLanguage: response.data.detected_lang_code,
+            warning: response.data.warning || null
+          }
+        }
+      } catch (error) {
+        toast.error(`Failed to process ${file.name}`)
+        throw error
+      }
+    }
 
     try {
-      // Get existing processed files to avoid reprocessing
-      const existingProcessedFiles = results.allProcessedFiles || []
-      const existingFilenames = existingProcessedFiles.map(f => f.filename)
-      
-      // Only process files that haven't been processed yet
-      const filesToProcess = files.filter(file => !existingFilenames.includes(file.name))
-      
-      let newProcessedResults = []
-      
-      if (filesToProcess.length > 0) {
-        // Process new files
-        newProcessedResults = await Promise.all(
-          filesToProcess.map(async (file) => {
-            const formData = new FormData()
-            formData.append('file', file)
-            
-            const response = await axios.post('/ocr', formData)
-            if (!response.data.success) {
-              throw new Error(response.data.error || 'OCR processing failed')
-            }
-            
-            return {
-              filename: file.name,
-              text: response.data.extracted_text,
-              detected_lang_name: response.data.detected_lang_name,
-              warning: response.data.warning
-            }
-          })
-        )
-      }
+      setLoading(true)
+      setCurrentOperation('OCR Processing')
 
-      // Combine existing and new processed files
-      const allProcessedFiles = [...existingProcessedFiles, ...newProcessedResults]
-
-      // Update results with all processed files
+      const results = await Promise.all(files.map(processFile))
+      
+      // Update results state
       setResults(prev => ({
         ...prev,
-        ocrText: allProcessedFiles[0]?.text || prev.ocrText, // Keep first result as main OCR text for other operations
-        filename: allProcessedFiles[0]?.filename || prev.filename,
-        allProcessedFiles: allProcessedFiles,
-        detectedLanguage: allProcessedFiles[0]?.detected_lang_name || prev.detectedLanguage,
-        ocrWarning: allProcessedFiles[0]?.warning || prev.ocrWarning,
-        // Only clear subsequent results if we processed new files
-        ...(newProcessedResults.length > 0 && {
-          translatedText: "",
-          cleanedText: "",
-          summary: "",
-          bulletPoints: "",
-          comparison: null,
-        })
+        ocrText: results[0].text, // Keep first file's text as main OCR text
+        filename: results[0].name,
+        detectedLanguage: results[0].detectedLanguage,
+        ocrWarning: results[0].warning,
+        allProcessedFiles: results.map(r => r.name)
       }))
 
-      // If we have exactly two files, automatically trigger comparison
-      if (allProcessedFiles.length === 2) {
-        await handleCompare(allProcessedFiles[0], allProcessedFiles[1])
+      console.log('App.jsx: Updated results state', results);
+      console.log('App.jsx: ocrText after update', results[0].text);
+      console.log('App.jsx: detectedLanguage after update', results[0].detectedLanguage);
+
+      // If we have two files, automatically trigger comparison
+      if (results.length === 2) {
+        await handleCompare(results[0], results[1])
       }
 
-      if (newProcessedResults.length > 0) {
-        toast.success(`OCR Processing completed for ${newProcessedResults.length} new file(s)! Total: ${allProcessedFiles.length}`)
-      } else {
-        toast.info('All files already processed. Use "Compare Documents" to compare them.')
-      }
+      toast.success('Text extraction completed!')
     } catch (error) {
-      console.error('OCR error:', error)
-      const errorMsg = error.response?.data?.error || error.message || 'OCR Processing failed'
-      setError(errorMsg)
-      toast.error(errorMsg)
+      console.error('OCR processing failed:', error)
+      toast.error('Failed to process one or more files')
     } finally {
       setLoading(false)
       setCurrentOperation('')
     }
   }
 
+  // Compare Handler
   const handleCompare = async (file1, file2) => {
-    // If no files provided, try to use the processed files
     if (!file1 || !file2) {
-      if (!results.allProcessedFiles || results.allProcessedFiles.length < 2) {
-        toast.error('Please process both files with OCR first')
+      toast.error('Two files are required for comparison')
         return
-      }
-      [file1, file2] = results.allProcessedFiles
     }
 
-    setLoading(true)
-    setCurrentOperation('Comparing Documents')
-    setError('')
-
-    try {
-      const response = await axios.post('/compare', {
-        text1: file1.text,
-        text2: file2.text,
-        file1Name: file1.filename,
-        file2Name: file2.filename
-      })
-
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Document comparison failed')
-      }
-
+    await makeApiCall(
+      '/compare',
+      { text1: file1.text, text2: file2.text },
+      (data) => {
       setResults(prev => ({
         ...prev,
         comparison: {
-          ...response.data,
-          file1Name: file1.filename,
-          file2Name: file2.filename,
-          text1: file1.text,
-          text2: file2.text
-        }
-      }))
-      toast.success('Documents compared successfully')
-    } catch (error) {
-      console.error('Comparison error:', error)
-      const errorMsg = error.response?.data?.error || error.message || 'Document comparison failed'
-      setError(errorMsg)
-      toast.error(errorMsg)
-    } finally {
-      setLoading(false)
-      setCurrentOperation('')
-    }
+            ...data,
+            file1: { name: file1.name, detectedLanguage: file1.detectedLanguage },
+            file2: { name: file2.name, detectedLanguage: file2.detectedLanguage }
+          }
+        }))
+      },
+      'Document Comparison'
+    )
   }
 
+  // Translation Handler
   const handleTranslate = async () => {
     if (!results.ocrText) {
-      toast.error('Please perform OCR on a document first')
+      toast.error('Please perform OCR first')
       return
     }
 
-    makeApiCall(
-      '/api/translate',
-      {
-        text: results.ocrText,
-        target_language: targetLanguage.name,
-        // Also send the detected source language for better accuracy
-        source_language_code: results.detectedLanguage?.code || 'auto'
-      },
+    await makeApiCall(
+      '/translate',
+      { text: results.ocrText, target_language: targetLanguage.name },
       (data) => {
         setResults(prev => ({
           ...prev,
           translatedText: data.translated_text
         }))
       },
-      `Translating to ${targetLanguage.name}`
+      'Translation'
     )
   }
 
+  // Text Cleanup Handler
   const handleCleanup = async () => {
     if (!results.ocrText) {
-      toast.error('Please extract text first')
+      toast.error('Please perform OCR first')
       return
     }
 
-    setLoading(true)
-    setCurrentOperation('Cleaning Text')
-    setError('')
-
-    try {
-      const response = await axios.post('/cleanup', {
-        text: results.ocrText
-      })
-
-      if (response.data.success) {
+    await makeApiCall(
+      '/cleanup',
+      { text: results.ocrText },
+      (data) => {
         setResults(prev => ({
           ...prev,
-          cleanedText: response.data.cleaned_text
+          cleanedText: data.cleaned_text
         }))
-        toast.success('Text cleaned successfully')
-      } else {
-        throw new Error(response.data.error || 'Text cleanup failed')
-      }
-    } catch (error) {
-      console.error('Cleanup error:', error)
-      setError(`Text cleanup failed: ${error.message}`)
-      toast.error('Failed to clean text')
-    } finally {
-      setLoading(false)
-      setCurrentOperation('')
-    }
+      },
+      'Text Cleanup'
+    )
   }
 
+  // Summarization Handler
   const handleSummarize = async () => {
-    if (!results.ocrText && !results.cleanedText) {
-      toast.error('Please extract text first')
+    if (!results.ocrText) {
+      toast.error('Please perform OCR first')
       return
     }
 
-    setLoading(true)
-    setCurrentOperation('Summarizing')
-    setError('')
-
-    try {
-      const textToSummarize = results.cleanedText || results.ocrText
-      const response = await axios.post('/summarize', {
-        text: textToSummarize
-      })
-
-      if (response.data.success) {
+    await makeApiCall(
+      '/summarize',
+      { text: results.ocrText },
+      (data) => {
         setResults(prev => ({
           ...prev,
-          summary: response.data.summary
+          summary: data.summary
         }))
-        toast.success('Text summarized successfully')
-      } else {
-        throw new Error(response.data.error || 'Summarization failed')
-      }
-    } catch (error) {
-      console.error('Summarization error:', error)
-      setError(`Summarization failed: ${error.message}`)
-      toast.error('Failed to summarize text')
-    } finally {
-      setLoading(false)
-      setCurrentOperation('')
-    }
+      },
+      'Summarization'
+    )
   }
 
+  // Bullet Points Handler
   const handleBulletPoints = async () => {
-    if (!results.ocrText && !results.cleanedText) {
-      toast.error('Please extract text first')
+    if (!results.ocrText) {
+      toast.error('Please perform OCR first')
       return
     }
 
-    setLoading(true)
-    setCurrentOperation('Generating Key Points')
-    setError('')
-
-    try {
-      const textToProcess = results.cleanedText || results.ocrText
-      const response = await axios.post('/bullet_points', {
-        text: textToProcess
-      })
-
-      if (response.data.success) {
+    await makeApiCall(
+      '/bullet_points',
+      { text: results.ocrText },
+      (data) => {
         setResults(prev => ({
           ...prev,
-          bulletPoints: response.data.bullet_points
+          bulletPoints: data.bullet_points
         }))
-        toast.success('Key points generated successfully')
-      } else {
-        throw new Error(response.data.error || 'Key points generation failed')
-      }
-    } catch (error) {
-      console.error('Key points error:', error)
-      setError(`Key points generation failed: ${error.message}`)
-      toast.error('Failed to generate key points')
-    } finally {
-      setLoading(false)
-      setCurrentOperation('')
-    }
+      },
+      'Bullet Points Generation'
+    )
   }
-
-  const processingSteps = [
-    { icon: DocumentTextIcon, title: 'Files Uploaded', completed: files.length > 0 },
-    { icon: CpuChipIcon, title: 'Text Extracted', completed: !!results.ocrText },
-    { icon: SparklesIcon, title: 'AI Processing', completed: !!(results.translatedText || results.cleanedText || results.summary || results.bulletPoints) },
-    { icon: CheckCircleIcon, title: 'Ready for Export', completed: !!(results.translatedText || results.summary) },
-  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 text-gray-900 dark:text-gray-100 transition-colors duration-500 font-sans relative overflow-hidden">
-      {/* Enhanced Background Elements with Scroll Parallax */}
+    <div 
+      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 transition-all duration-300"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+    >
+      {/* Toast notifications with mobile optimization */}
+      <Toaster 
+        position={isMobile ? "top-center" : "top-right"}
+        toastOptions={{
+          className: 'text-sm',
+          style: {
+            maxWidth: isMobile ? '95vw' : '90vw',
+            fontSize: isMobile ? '14px' : '16px',
+          },
+          duration: isMobile ? 3000 : 4000,
+        }}
+      />
+
+      {/* Offline indicator */}
+      <AnimatePresence>
+        {!isOnline && (
       <motion.div 
-        className="fixed inset-0 overflow-hidden pointer-events-none"
-        style={{ y: yBg, opacity: opacityBg }}
-      >
-        {/* Primary floating blobs */}
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-16 sm:top-20 left-1/2 transform -translate-x-1/2 z-[110] bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium"
+          >
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <span>You're offline - Some features may be limited</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Enhanced floating background decorations */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20 dark:opacity-10">
         <motion.div 
-          className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/30 to-purple-500/30 dark:from-blue-600/40 dark:to-purple-700/40 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          style={{ y: yBg, opacity: opacityBg }}
+          className="absolute -top-20 -left-20 w-96 h-96 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full mix-blend-multiply filter blur-xl"
           variants={floatingVariants}
           initial="initial"
           animate="animate"
         />
         <motion.div 
-          className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/30 to-pink-500/30 dark:from-purple-600/40 dark:to-pink-700/40 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          style={{ y: yBg, opacity: opacityBg }}
+          className="absolute -top-20 -right-20 w-96 h-96 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl"
           variants={floatingVariants}
           initial="initial"
           animate="animate"
           transition={{ delay: 2 }}
         />
         <motion.div 
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 dark:from-yellow-600/30 dark:to-orange-700/30 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
+          style={{ y: yBg, opacity: opacityBg }}
+          className="absolute -bottom-20 -left-20 w-96 h-96 bg-gradient-to-r from-pink-400 to-yellow-400 rounded-full mix-blend-multiply filter blur-xl"
           variants={floatingVariants}
           initial="initial"
           animate="animate"
           transition={{ delay: 4 }}
         />
-        
-        {/* Secondary decorative elements */}
-        <motion.div 
-          className="absolute top-20 left-1/4 w-32 h-32 bg-gradient-to-br from-emerald-400/25 to-teal-500/25 dark:from-emerald-600/35 dark:to-teal-700/35 rounded-full filter blur-xl mix-blend-normal dark:mix-blend-screen"
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 8,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-        />
-        <motion.div 
-          className="absolute bottom-20 right-1/4 w-24 h-24 bg-gradient-to-br from-rose-400/30 to-pink-500/30 dark:from-rose-600/40 dark:to-pink-700/40 rounded-full filter blur-xl mix-blend-normal dark:mix-blend-screen"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [360, 180, 0],
-          }}
-          transition={{
-            duration: 10,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-        />
+      </div>
 
-        {/* Additional floating elements for more dynamic background */}
-        <motion.div 
-          className="absolute top-1/4 right-1/3 w-40 h-40 bg-gradient-to-br from-indigo-400/20 to-cyan-500/20 dark:from-indigo-600/30 dark:to-cyan-700/30 rounded-full filter blur-2xl mix-blend-normal dark:mix-blend-screen"
-          animate={{
-            x: [0, 30, -30, 0],
-            y: [0, -20, 20, 0],
-            scale: [1, 1.1, 0.9, 1],
-          }}
-          transition={{
-            duration: 12,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-        />
-        <motion.div 
-          className="absolute bottom-1/3 left-1/3 w-28 h-28 bg-gradient-to-br from-violet-400/25 to-fuchsia-500/25 dark:from-violet-600/35 dark:to-fuchsia-700/35 rounded-full filter blur-xl mix-blend-normal dark:mix-blend-screen"
-          animate={{
-            x: [0, -25, 25, 0],
-            y: [0, 25, -25, 0],
-            rotate: [0, 120, 240, 360],
-          }}
-          transition={{
-            duration: 15,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-        />
-        <motion.div 
-          className="absolute top-3/4 right-1/6 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-red-500/30 dark:from-amber-600/40 dark:to-red-700/40 rounded-full filter blur-lg mix-blend-normal dark:mix-blend-screen"
-          animate={{
-            scale: [0.8, 1.3, 0.8],
-            rotate: [0, -180, -360],
-            opacity: [0.7, 1, 0.7],
-          }}
-          transition={{
-            duration: 9,
-            ease: "easeInOut",
-            repeat: Infinity,
-          }}
-        />
-      </motion.div>
-
-      <Toaster 
-        position="top-right" 
-        reverseOrder={false}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: theme === 'dark' ? '#374151' : '#f9fafb',
-            color: theme === 'dark' ? '#f9fafb' : '#374151',
-            borderRadius: '12px',
-            boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
-          },
-        }}
-      />
-      
-      {/* Enhanced Top Navigation Bar */}
+      {/* Enhanced Navigation */}
       <motion.nav 
         className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-[100] shadow-lg"
         variants={navVariants}
         initial="hidden"
         animate="visible"
       >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             {/* Enhanced Logo */}
             <motion.div 
-              className="flex items-center space-x-3"
+              className="flex items-center space-x-2 sm:space-x-3"
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.2 }}
             >
               <motion.div 
-                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg"
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg"
                 whileHover={{ 
                   scale: 1.1,
                   rotate: 5,
@@ -823,7 +698,7 @@ function App() {
                   animate={{ rotate: [0, 5, -5, 0] }}
                   transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 >
-                <DocumentTextIcon className="w-6 h-6 text-white" />
+                <DocumentTextIcon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                 </motion.div>
               </motion.div>
               <div className="hidden sm:block">
@@ -835,7 +710,7 @@ function App() {
                 </p>
               </div>
               <div className="sm:hidden">
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+                <h1 className="text-sm font-bold text-gray-900 dark:text-white">
                   Legal AI
                 </h1>
             </div>
@@ -843,69 +718,10 @@ function App() {
 
             {/* Enhanced Right side controls */}
             <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Enhanced User Profile or Login */}
-              {user ? (
-                <motion.div 
-                  className="flex items-center space-x-3"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <div className="text-right hidden md:block">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {user.full_name || user.username}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {user.email}
-                    </p>
-                  </div>
-                  <motion.div 
-                    className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center md:hidden"
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <span className="text-white text-sm font-semibold">
-                      {(user.full_name || user.username)?.charAt(0).toUpperCase() || 'U'}
-                    </span>
-                  </motion.div>
-                  <div className="flex items-center space-x-1 sm:space-x-2">
-                    <motion.button
-                      onClick={() => {/* TODO: Add profile modal */}}
-                      className="p-2 rounded-full bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors backdrop-blur-sm"
-                      whileHover={{ scale: 1.1, rotate: 15 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <Cog6ToothIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" />
-                    </motion.button>
-                    <motion.button
-                      onClick={handleLogout}
-                      className="p-2 rounded-full bg-red-100/80 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 transition-colors backdrop-blur-sm"
-                      whileHover={{ scale: 1.1, rotate: -10 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <ArrowRightOnRectangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-red-700 dark:text-red-300" />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.button
-                  onClick={openAuthModal}
-                  className="flex items-center space-x-1 sm:space-x-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 backdrop-blur-sm"
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <UserIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="font-medium text-sm sm:text-base">Sign In</span>
-                </motion.button>
-              )}
-
               {/* Enhanced Theme Toggle */}
               <motion.button 
                 onClick={toggleTheme}
-                className="p-2 rounded-full bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors backdrop-blur-sm"
+                className="p-2 rounded-full bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors backdrop-blur-sm touch-manipulation"
                 whileHover={{ scale: 1.1, rotate: 15 }}
                 whileTap={{ scale: 0.9, rotate: -15 }}
                 initial={{ opacity: 0, rotate: 180 }}
@@ -929,9 +745,9 @@ function App() {
       </motion.nav>
 
       {/* Enhanced Main Content with Better Responsive Design */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12 relative z-10">
+      <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-12 relative z-10">
         <motion.header 
-          className="text-center mb-12 sm:mb-16 lg:mb-20 relative"
+          className="text-center mb-8 sm:mb-12 lg:mb-20 relative"
           variants={headerVariants}
           initial="hidden"
           animate="visible"
@@ -943,7 +759,7 @@ function App() {
           
           {/* Enhanced title with sophisticated gradient and effects */}
           <motion.h1 
-            className="relative text-3xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black mb-6 sm:mb-8 leading-[0.9] tracking-tight"
+            className="relative text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-black mb-4 sm:mb-6 lg:mb-8 leading-[0.9] tracking-tight px-4"
             variants={titleVariants}
             style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
@@ -963,7 +779,7 @@ function App() {
               Legal Document
             </motion.span>
             <motion.span
-              className="block text-4xl sm:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl mt-2 sm:mt-3"
+              className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl mt-1 sm:mt-2"
               initial={{ opacity: 0, y: 30, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.4 }}
@@ -982,19 +798,19 @@ function App() {
           
           {/* Enhanced subtitle with better spacing and typography */}
           <motion.div 
-            className="max-w-4xl mx-auto px-6 sm:px-8"
+            className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8"
             variants={titleVariants}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
           >
-            <p className="text-lg sm:text-xl lg:text-2xl xl:text-3xl text-gray-700 dark:text-gray-200 leading-relaxed mb-4 font-medium">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl text-gray-700 dark:text-gray-200 leading-relaxed mb-4 font-medium">
               Empower your legal workflow with advanced OCR, translation, and AI insights.
             </p>
             
             {/* Feature highlights */}
             <motion.div 
-              className="flex flex-wrap justify-center gap-4 sm:gap-6 mt-6 sm:mt-8"
+              className="flex flex-wrap justify-center gap-2 sm:gap-4 lg:gap-6 mt-4 sm:mt-6 lg:mt-8"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.8 }}
@@ -1007,18 +823,19 @@ function App() {
               ].map((feature, index) => (
                 <motion.div
                   key={feature.text}
-                  className="flex items-center space-x-2 px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-200/50 dark:border-gray-700/50"
+                  className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1 sm:py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-200/50 dark:border-gray-700/50 touch-manipulation"
                   whileHover={{ 
                     scale: 1.05, 
                     y: -2,
                     boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
                   }}
+                  whileTap={{ scale: 0.95 }}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 1 + index * 0.1 }}
                 >
-                  <span className="text-xl">{feature.icon}</span>
-                  <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-base sm:text-xl">{feature.icon}</span>
+                  <span className="text-xs sm:text-sm md:text-base font-medium text-gray-700 dark:text-gray-300">
                     {feature.text}
                   </span>
                 </motion.div>
@@ -1028,7 +845,7 @@ function App() {
         </motion.header>
 
         <motion.div
-          className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 mb-8 sm:mb-12"
+          className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 xl:gap-12 mb-6 sm:mb-8 lg:mb-12"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -1036,19 +853,21 @@ function App() {
           {/* File Upload Section */}
           <motion.div variants={itemVariants} className="lg:col-span-1">
             <motion.div 
-              className="bg-white dark:bg-gray-800 rounded-2xl p-8 h-full flex flex-col justify-between card-glow"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col justify-between card-glow"
               variants={cardVariants}
               whileHover="hover"
             >
-              <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200 flex items-center">
-                <DocumentTextIcon className="h-8 w-8 mr-3 text-blue-500" /> Document Input
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-4 sm:mb-6 text-gray-800 dark:text-gray-200 flex items-center">
+                <DocumentTextIcon className="h-6 w-6 sm:h-8 sm:w-8 mr-2 sm:mr-3 text-blue-500" /> 
+                <span className="hidden sm:inline">Document Input</span>
+                <span className="sm:hidden">Upload</span>
               </h2>
               <FileUpload 
                 onFilesSelected={handleFileSelect}
               />
               {files.length > 0 && (
-                <div className="mt-4 text-gray-700 dark:text-gray-300">
-                  <p>Selected file: <span className="font-semibold">{files[0].name}</span></p>
+                <div className="mt-3 sm:mt-4 text-gray-700 dark:text-gray-300">
+                  <p className="text-sm sm:text-base">Selected file: <span className="font-semibold break-all">{files[0].name}</span></p>
                 </div>
               )}
             </motion.div>
@@ -1057,15 +876,17 @@ function App() {
           {/* Language Selection & AI Operations */}
           <motion.div variants={itemVariants} className="lg:col-span-2 relative z-20">
             <motion.div 
-              className="bg-white dark:bg-gray-800 rounded-2xl p-8 h-full flex flex-col justify-between overflow-visible card-glow"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col justify-between overflow-visible card-glow"
               variants={cardVariants}
               whileHover="hover"
             >
-              <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200 flex items-center">
-                <SparklesIcon className="h-8 w-8 mr-3 text-purple-500" /> AI Operations
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-4 sm:mb-6 text-gray-800 dark:text-gray-200 flex items-center">
+                <SparklesIcon className="h-6 w-6 sm:h-8 sm:w-8 mr-2 sm:mr-3 text-purple-500" /> 
+                <span className="hidden sm:inline">AI Operations</span>
+                <span className="sm:hidden">AI Tools</span>
               </h2>
               
-              <div className="mb-6 z-[99]"> {/* Ensure LanguageSelector has high z-index */}
+              <div className="mb-4 sm:mb-6 z-[99]"> {/* Ensure LanguageSelector has high z-index */}
                 <motion.div variants={itemVariants}>
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1107,7 +928,7 @@ function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]"
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
             >
               <LoadingSpinner operation={currentOperation} />
             </motion.div>
@@ -1116,14 +937,14 @@ function App() {
 
         {/* Results Display */}
         <motion.div 
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-8"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8"
           variants={cardVariants}
           initial="hidden"
           animate="visible"
           whileHover="hover"
         >
-          <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200 flex items-center">
-            <CheckCircleIcon className="h-8 w-8 mr-3 text-green-500" /> Results
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-4 sm:mb-6 text-gray-800 dark:text-gray-200 flex items-center">
+            <CheckCircleIcon className="h-6 w-6 sm:h-8 sm:w-8 mr-2 sm:mr-3 text-green-500" /> Results
           </h2>
           <ResultsDisplay results={results} />
         </motion.div>
@@ -1135,11 +956,11 @@ function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl relative mt-8"
+              className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-3 sm:px-4 py-3 rounded-xl relative mt-6 sm:mt-8"
               role="alert"
             >
               <strong className="font-bold">Error:</strong>
-              <span className="block sm:inline ml-2">{error}</span>
+              <span className="block sm:inline ml-0 sm:ml-2 mt-1 sm:mt-0 text-sm sm:text-base">{error}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1151,20 +972,13 @@ function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="mt-8"
+              className="mt-6 sm:mt-8"
             >
               <DocumentComparison comparison={results.comparison} />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={closeAuthModal}
-        onAuthSuccess={handleAuthSuccess}
-      />
     </div>
   )
 }

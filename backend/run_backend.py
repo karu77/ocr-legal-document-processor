@@ -15,10 +15,10 @@ sys.path.insert(0, current_dir)
 from app import app
 
 if __name__ == '__main__':
-    print("🚀 Starting OCR Legal Document Processor Backend...")
-    print("📍 Backend will be available at: http://localhost:5000")
-    print("🔗 API Health Check: http://localhost:5000/health")
-    print("🌍 CORS enabled for frontend connection")
+    print(">> Starting OCR Legal Document Processor Backend...")
+    print(">> Backend will be available at: http://localhost:5000")
+    print(">> API Health Check: http://localhost:5000/health")
+    print(">> CORS enabled for frontend connection")
     print("-" * 50)
     
     # Run the Flask development server

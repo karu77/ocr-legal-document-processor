@@ -307,6 +307,18 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# PWA and Mobile Development
+# Service worker cache
+sw.js.map
+workbox-*.js
+# PWA icons (if generated during build)
+/frontend/public/icons/
+# Mobile testing artifacts
+mobile-test-results/
+lighthouse-reports/
+# PWA audit reports
+pwa-audit/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

@@ -386,6 +386,156 @@
   .mobile-full-width {
     @apply w-full;
   }
+  
+  /* Mobile-specific touch optimizations */
+  .mobile-touch-optimize {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  /* Mobile-friendly buttons */
+  .mobile-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 16px;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+  
+  /* Mobile-friendly input fields */
+  .mobile-input {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+  
+  /* Mobile-friendly text areas */
+  .mobile-textarea {
+    min-height: 120px;
+    font-size: 16px;
+    padding: 16px;
+    line-height: 1.5;
+  }
+  
+  /* Mobile-friendly dropzone */
+  .mobile-dropzone {
+    min-height: 120px;
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  /* Mobile-friendly card spacing */
+  .mobile-card {
+    margin: 8px;
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  /* Mobile-friendly modal */
+  .mobile-modal {
+    margin: 16px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+  
+  /* Mobile-friendly toast */
+  .mobile-toast {
+    margin: 8px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+  
+  /* Mobile-friendly tabs */
+  .mobile-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .mobile-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Mobile-friendly progress indicator */
+  .mobile-progress {
+    height: 2px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 1px;
+  }
+  
+  /* Mobile-friendly loading spinner */
+  .mobile-loading {
+    padding: 24px;
+  }
+  
+  /* Mobile-friendly file upload */
+  .mobile-file-upload {
+    border-radius: 16px;
+    padding: 24px 16px;
+    min-height: 140px;
+  }
+  
+  /* Mobile-friendly results display */
+  .mobile-results {
+    padding: 16px;
+    margin: 8px 0;
+    border-radius: 16px;
+  }
+  
+  /* Mobile-friendly comparison view */
+  .mobile-comparison {
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  /* Mobile-friendly action buttons */
+  .mobile-action-buttons {
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  /* Mobile-friendly language selector */
+  .mobile-language-selector {
+    font-size: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+  }
+  
+  /* Mobile-friendly navigation */
+  .mobile-nav {
+    padding: 12px 16px;
+    backdrop-filter: blur(20px);
+  }
+  
+  /* Mobile-friendly offline indicator */
+  .mobile-offline {
+    top: 64px;
+    margin: 8px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+  
+  /* Mobile-specific scroll behavior */
+  .mobile-scroll-smooth {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Mobile-friendly hover states (disable on touch devices) */
+  .mobile-no-hover:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  
+  /* Mobile-friendly focus states */
+  .mobile-focus:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
 }
 
 /* Custom scrollbar for content areas */
